@@ -5,6 +5,9 @@ service cloud.firestore {
     function signedIn() { return request.auth != null && request.auth.token.email_verified == true; }
     function mail()     { return request.auth.token.email.lower(); }
     function isAdmin()  { return signedIn() && mail() in ['asifahsaan1@gmail.com']; }
+    function isTeacher() { return signedIn() && mail().matches('.*@cs[.]uol[.]edu[.]pk'); }
+    function planDl(uid)  { return exists(/databases/$(database)/documents/plans/$(uid)) && get(/databases/$(database)/documents/plans/$(uid)).data.downloads != null ? get(/databases/$(database)/documents/plans/$(uid)).data.downloads : 2; }
+    function planHrs(uid) { return exists(/databases/$(database)/documents/plans/$(uid)) && get(/databases/$(database)/documents/plans/$(uid)).data.hours != null ? get(/databases/$(database)/documents/plans/$(uid)).data.hours : 5; }
     function isUol()    { return signedIn() && (mail().matches('.*@cs[.]uol[.]edu[.]pk') || mail().matches('.*@student[.]uol[.]edu[.]pk')); }
 
     // one document per signed-in UOL user (and the admin)
@@ -13,6 +16,30 @@ service cloud.firestore {
       allow create, update: if (isUol() || isAdmin()) && request.auth.uid == uid
         && request.resource.data.email == mail()
         && request.resource.data.keys().hasOnly(['name','email','role','lastLogin','firstLogin','loginCount']);
+    }
+
+    // download limit counter: teachers only, enforced here (default 2 downloads per 5 hours, changeable per user in /plans)
+    match /quota/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow create: if isTeacher() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['n','start'])
+        && request.resource.data.n == 1 && request.resource.data.start == request.time && planDl(uid) >= 1;
+      allow update: if isTeacher() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['n','start'])
+        && (
+          (request.time > resource.data.start + duration.value(planHrs(uid), 'h')
+             && request.resource.data.n == 1 && request.resource.data.start == request.time && planDl(uid) >= 1)
+          ||
+          (request.time <= resource.data.start + duration.value(planHrs(uid), 'h')
+             && resource.data.n < planDl(uid)
+             && request.resource.data.n == resource.data.n + 1 && request.resource.data.start == resource.data.start)
+        );
+    }
+
+    // per-user plan (admin writes): { downloads: number, hours: number }
+    match /plans/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow write: if isAdmin();
     }
 
     // usage events: visit, login, run, download

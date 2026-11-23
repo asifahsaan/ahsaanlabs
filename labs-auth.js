@@ -16,7 +16,10 @@
   var path = location.pathname;
   var IS_LAB = /\/dl\/[\w-]+\.html$/.test(path);
   var LAB = (path.match(/\/dl\/([\w-]+)\.html$/) || [])[1] || (/admin\.html$/.test(path) ? 'admin' : 'hub');
-  var state = { ready: false, user: null, ok: false, msg: '' };
+  var TEST_QH = parseFloat((location.search.match(/[?&]qh=([\d.]+)/) || [])[1]) || 5;
+  var FREE = false;
+  try { if (IS_LAB && ENABLED && !localStorage.getItem('labs_free_' + LAB)) { FREE = true; localStorage.setItem('labs_free_' + LAB, String(Date.now())); } } catch (e) { }
+  var state = { ready: false, user: null, ok: false, msg: '', free: FREE, quota: null };
   var listeners = [];
   var api = { cfg: CFG, test: TEST, enabled: ENABLED, state: state, onChange: function (f) { listeners.push(f); if (state.ready) f(state); }, signIn: signIn, signOut: signOut, firebase: function () { return fbP; }, isAdmin: isAdmin, roleOf: roleOf };
   window.LabsAuth = api;
@@ -70,6 +73,26 @@
         });
       },
       signOut: function () { return fbP.then(function (f) { return f.authM.signOut(f.auth); }); },
+      quota: {
+        status: function () {
+          return fbP.then(function (f) {
+            var u = state.user;
+            return Promise.all([f.fs.getDoc(f.fs.doc(f.db, 'quota', u.uid)), f.fs.getDoc(f.fs.doc(f.db, 'plans', u.uid))]).then(function (r) {
+              var q = r[0], p = r[1], lim = (p.exists() && p.data().downloads != null) ? p.data().downloads : 2, hrs = (p.exists() && p.data().hours != null) ? p.data().hours : 5;
+              var n = 0, start = null, active = false;
+              if (q.exists()) { var dd = q.data(); start = dd.start.toDate(); if (Date.now() < start.getTime() + hrs * 3600e3) { n = dd.n; active = true; } }
+              return { limit: lim, hours: hrs, n: n, active: active, left: Math.max(0, lim - n), resetsAt: active ? new Date(start.getTime() + hrs * 3600e3) : null };
+            });
+          });
+        },
+        take: function (q) {
+          return fbP.then(function (f) {
+            var ref = f.fs.doc(f.db, 'quota', state.user.uid);
+            var w = q.active ? f.fs.updateDoc(ref, { n: q.n + 1 }) : f.fs.setDoc(ref, { n: 1, start: f.fs.serverTimestamp() });
+            return w.then(function () { return true; }).catch(function () { return false; });
+          });
+        }
+      },
       log: function (type, detail) {
         fbP.then(function (f) {
           var u = state.user, ts = f.fs.serverTimestamp(), ev = { type: type, lab: LAB, detail: detail || '', uid: u ? u.uid : null, anon: anonId(), role: u ? u.role : 'guest', ts: ts };
@@ -101,6 +124,19 @@
       init: function () { var e = emails[cur]; setTimeout(function () { setUser(e ? { uid: 'test-' + cur, name: cur === 'bad' ? 'Someone' : cur[0].toUpperCase() + cur.slice(1) + ' Test', email: e } : null); }, 50); },
       signIn: function () { var r = (role === 'out' || role === 'bad') ? 'student' : role; sessionStorage.setItem('labs_test_user', r); cur = r; var e = emails[r]; setUser({ uid: 'test-' + r, name: r[0].toUpperCase() + r.slice(1) + ' Test', email: e }); return Promise.resolve(); },
       signOut: function () { sessionStorage.setItem('labs_test_user', ''); cur = ''; setUser(null); return Promise.resolve(); },
+      quota: {
+        status: function () {
+          var s = null; try { s = JSON.parse(localStorage.getItem('labs_test_quota') || 'null'); } catch (e) { }
+          var lim = 2, n = 0, active = false, start = null;
+          if (s && Date.now() < s.start + TEST_QH * 3600e3) { n = s.n; active = true; start = s.start; }
+          return Promise.resolve({ limit: lim, hours: TEST_QH, n: n, active: active, left: Math.max(0, lim - n), resetsAt: active ? new Date(start + TEST_QH * 3600e3) : null });
+        },
+        take: function (q) {
+          var s = null; try { s = JSON.parse(localStorage.getItem('labs_test_quota') || 'null'); } catch (e) { }
+          localStorage.setItem('labs_test_quota', JSON.stringify(q.active && s ? { n: q.n + 1, start: s.start } : { n: 1, start: Date.now() }));
+          return Promise.resolve(true);
+        }
+      },
       log: function (type, detail) { evs.push({ type: type, lab: LAB, detail: detail || '', role: state.user ? state.user.role : 'guest', t: Date.now() }); try { localStorage.setItem('labs_test_events', JSON.stringify(evs.slice(-100))); } catch (e) { } }
     };
   }
@@ -118,6 +154,7 @@
     '#authmodal{position:fixed;inset:0;z-index:2147483600;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(3px)}#authmodal.on{display:flex}' +
     '#authmodal .box{background:#fff;color:#1b2430;border-radius:16px;max-width:440px;width:100%;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.35);font:15px/1.5 system-ui,sans-serif}' +
     '#authmodal h3{margin:0 0 6px;font-size:20px}#authmodal .g{display:flex;gap:10px;align-items:center;justify-content:center;width:100%;margin:14px 0 8px;padding:11px;border:1px solid #cfd8e3;border-radius:10px;background:#fff;font:600 15px system-ui,sans-serif;cursor:pointer}#authmodal .g:hover{background:#f5f8fb}' +
+    'body.nodl #pdfbtn,body.nodl #pptxbtn{display:none!important}' +
     '#authmodal .s{font-size:12.5px;color:#5c6b7a}#authmodal .err{background:#FDECEA;color:#8E2A1F;border-radius:8px;padding:8px 10px;margin:8px 0;font-size:13.5px}#authmodal .x{float:right;border:0;background:none;font-size:20px;cursor:pointer;color:#5c6b7a}';
   var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
   var root = document.createElement('div'); root.id = 'authroot';
@@ -140,18 +177,25 @@
   }
   function rel(p) { return (IS_LAB ? '../' : '') + p; }
   function esc2(s) { return String(s).replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
+  function untilTxt(d) { var ms = Math.max(0, d.getTime() - Date.now()), m = Math.ceil(ms / 60000), h = Math.floor(m / 60); return 'resets in ' + (h ? h + 'h ' : '') + (m % 60) + 'm'; }
+  function showMsg(html) { root.querySelector('#authbody').innerHTML = html; root.querySelector('#authmodal').classList.add('on'); }
+  function showLimit(q) {
+    showMsg('<h3>Download limit reached</h3><p style="margin:4px 0">You have used your ' + q.limit + ' downloads for now. You can download again in <b>' + untilTxt(q.resetsAt).replace('resets in ', '') + '</b> (at ' + q.resetsAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ').</p><div class="s">Free teacher plan: ' + q.limit + ' downloads every ' + q.hours + ' hours (PDF and PowerPoint count the same). Paid plans with more downloads are coming soon.</div>');
+  }
   var bar = null;
   function render() {
     if (!root.isConnected) return;
     var chip = root.querySelector('#authchip');
-    if (state.ok) chip.innerHTML = '<span>👤 ' + esc2(state.user.name) + ' · ' + state.user.role + '</span><button id="authout">Sign out</button>';
+    var qtxt = '';
+    if (state.ok && state.user.role === 'teacher' && state.quota) qtxt = ' · ⬇ ' + state.quota.left + '/' + state.quota.limit + (state.quota.left === 0 && state.quota.resetsAt ? ' (' + untilTxt(state.quota.resetsAt) + ')' : '');
+    if (state.ok) chip.innerHTML = '<span>👤 ' + esc2(state.user.name) + ' · ' + state.user.role + qtxt + '</span><button id="authout">Sign out</button>';
     else if (state.failOpen) chip.innerHTML = '';
-    else chip.innerHTML = '<span>🔒 Sign in to run the labs</span><button class="p" id="authin">Sign in</button>';
+    else chip.innerHTML = '<span>' + (FREE ? '🎁 First run is free' : '🔒 Sign in to run the labs') + '</span><button class="p" id="authin">Sign in</button>';
     var o = chip.querySelector('#authout'); if (o) o.onclick = signOut; var i = chip.querySelector('#authin'); if (i) i.onclick = openModal;
     if (state.ok) closeModal();
     else if (state.msg && state.ready) openModal();
     if (IS_LAB) {
-      if (!state.ok && state.ready && !state.failOpen && !bar) { bar = document.createElement('div'); bar.id = 'authbar'; bar.innerHTML = '<span>👀 You are looking around. <b>Sign in with your UOL Google account to run this lab.</b></span><button>Sign in</button>'; bar.querySelector('button').onclick = openModal; document.body.insertBefore(bar, document.body.firstChild); }
+      if (!state.ok && state.ready && !state.failOpen && !bar) { bar = document.createElement('div'); bar.id = 'authbar'; bar.innerHTML = FREE ? '<span>🎁 <b>Your first run is free.</b> Next time, sign in with your UOL Google account to keep using the labs.</span><button>Sign in now</button>' : '<span>👀 You are looking around. <b>Sign in with your UOL Google account to run this lab.</b></span><button>Sign in</button>'; bar.querySelector('button').onclick = openModal; document.body.insertBefore(bar, document.body.firstChild); }
       if ((state.ok || state.failOpen) && bar) { bar.remove(); bar = null; }
     }
   }
@@ -159,7 +203,7 @@
   /* ---------- gate: in a lab, any interaction needs sign-in ---------- */
   function inside(el, sel) { return el && el.closest && el.closest(sel); }
   function gate(e) {
-    if (!IS_LAB || !state.ready || state.ok || state.failOpen) return;
+    if (!IS_LAB || !state.ready || state.ok || state.failOpen || FREE) return;
     var t = e.target;
     if (inside(t, '#authroot') || inside(t, '.topnav') || inside(t, '#authbar')) return;
     if (e.type === 'keydown' && (e.key === 'Tab' || e.key === 'Escape' || e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta' || (e.ctrlKey || e.metaKey))) return;
@@ -169,16 +213,39 @@
   }
   ['pointerdown', 'mousedown', 'touchstart', 'click', 'keydown', 'input', 'change'].forEach(function (n) { document.addEventListener(n, gate, true); });
 
-  /* ---------- usage logging ---------- */
-  var ran = false;
+  /* ---------- downloads: teachers only, limited; usage logging ---------- */
+  var ran = false, bypass = false, busy = false;
+  function logDl(btn) { api.log('download', (btn.id === 'po-dl' ? 'pdf:' : 'pptx:') + LAB); }
+  function refreshQuota() { if (state.ok && state.user.role === 'teacher') backend.quota.status().then(function (q) { state.quota = q; render(); }).catch(function () { }); }
   document.addEventListener('click', function (e) {
-    if (!state.ok) return; var t = e.target;
-    if (inside(t, '#po-dl')) api.log('download', 'pdf:' + LAB);
-    else if (inside(t, '#px-go')) api.log('download', 'pptx:' + LAB);
-    else if (IS_LAB && !ran && !inside(t, '#authroot') && !inside(t, '.topnav')) { ran = true; api.log('run', ''); }
+    if (bypass) return;
+    var t = e.target, btn = inside(t, '#po-dl') || inside(t, '#px-go') || inside(t, '#pdfbtn') || inside(t, '#pptxbtn');
+    if (!btn) {
+      if (IS_LAB && !ran && !inside(t, '#authroot') && !inside(t, '.topnav') && !inside(t, '#authbar') && (state.ok || (FREE && state.ready))) { ran = true; api.log('run', state.ok ? '' : 'free'); }
+      return;
+    }
+    var role = state.user && state.user.role, isDl = btn.id === 'po-dl' || btn.id === 'px-go';
+    if (!state.ok || (role !== 'teacher' && role !== 'admin')) { e.preventDefault(); e.stopImmediatePropagation(); if (root.isConnected) showMsg('<h3>Downloads are for teachers</h3><p style="margin:4px 0">PDF and PowerPoint downloads are available to teachers (@' + CFG.domains.teacher + ').</p>'); return; }
+    if (role === 'admin') { if (isDl) logDl(btn); return; }
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (busy) return; busy = true;
+    backend.quota.status().then(function (q) {
+      state.quota = q; render();
+      if (q.left <= 0) { busy = false; showLimit(q); return; }
+      if (!isDl) { busy = false; bypass = true; try { btn.click(); } finally { bypass = false; } return; }
+      return backend.quota.take(q).then(function (ok) {
+        busy = false;
+        if (!ok) { showLimit(q); return; }
+        bypass = true; try { btn.click(); } finally { bypass = false; }
+        logDl(btn); refreshQuota();
+      });
+    }).catch(function () { busy = false; showMsg('<h3>Could not check your download limit</h3><p style="margin:4px 0">Please try again in a moment.</p>'); });
   }, true);
   var lastUid = null;
   api.onChange(function (s) {
+    var okDl = s.ok && (s.user.role === 'teacher' || s.user.role === 'admin');
+    if (document.body) document.body.classList.toggle('nodl', !okDl);
+    if (s.ok && s.user.role === 'teacher' && !s.quota) refreshQuota();
     render();
     if (s.ok && s.user.uid !== lastUid) { lastUid = s.user.uid; var key = 'labs_logged_' + s.user.uid; try { if (!sessionStorage.getItem(key)) { sessionStorage.setItem(key, '1'); api.log('login', ''); } } catch (e) { api.log('login', ''); } }
     if (!s.ok) lastUid = null;
@@ -186,6 +253,6 @@
 
   var visited = false;
   api.onChange(function (s) { if (s.ready && !visited) { visited = true; api.log('visit', ''); } });
-  function start() { if (!/admin\.html$/.test(path)) mount(); backend.init(); }
+  function start() { if (IS_LAB) document.body.classList.add('nodl'); if (!/admin\.html$/.test(path)) mount(); backend.init(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();

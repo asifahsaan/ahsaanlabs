@@ -35,8 +35,8 @@
       if (per) {
         for (let j = 0; j < sz[l]; j++) {
           const n = nIdx[l][j];
-          rv.z[l][j] = id; out.push({ id: id++, t: `z${n}: add up the weighted inputs`, from: `${l === 1 ? 'the inputs' : 'the previous layer'} and the weights`, to: `z${n}`, k: ['n' + n], part: 'z', say: `Neuron ${n} multiplies each incoming value by its weight, adds them up and adds its bias. The node is called **z${n}**, and this sum appears under it.` });
-          if (!soft) { rv.a[l][j] = id; out.push({ id: id++, t: `a${n}: pass z${n} through ${actName(l) === 'linear' || actName(l) === 'identity' ? 'the identity' : actName(l)}`, from: `z${n}`, to: l === L ? `ŷ${j + 1} (a${n})` : `a${n}`, k: ['n' + n], part: 'a', say: `The function badge under the node bends **z${n}** into **a${n}**${l === L ? ', the prediction ŷ' + (j + 1) : ''}, and the new value appears below the badge. Click the node to look inside.` }); }
+          rv.z[l][j] = id; out.push({ id: id++, t: `z${n}: add up the weighted inputs`, from: `${l === 1 ? 'the inputs' : 'the previous layer'} and the weights`, to: `z${n}`, k: ['n' + n], part: 'z', say: `Neuron ${n} multiplies each incoming value by its weight, adds them up and adds its bias. The node is called **z${n}**, and this sum appears above it, on the left of the function badge.` });
+          if (!soft) { rv.a[l][j] = id; out.push({ id: id++, t: `a${n}: pass z${n} through ${actName(l) === 'linear' || actName(l) === 'identity' ? 'the identity' : actName(l)}`, from: `z${n}`, to: l === L ? `ŷ${j + 1} (a${n})` : `a${n}`, k: ['n' + n], part: 'a', say: `The function badge above the node bends **z${n}** into **a${n}**${l === L ? ', the prediction ŷ' + (j + 1) : ''}, and the new value appears on the right of the badge. Click the node to look inside.` }); }
         }
         if (soft) { const idd = id; for (let j = 0; j < sz[l]; j++) rv.a[l][j] = idd; out.push({ id: id++, t: 'Softmax turns all the z values into probabilities', from: nIdx[l].map(n => 'z' + n).join(', '), to: nIdx[l].map((n, j) => 'ŷ' + (j + 1)).join(', '), k: ['n' + nIdx[l][0]], part: 'a', say: 'Softmax looks at all the output z values together and gives each a share of 100%.' }); }
       } else {
@@ -80,21 +80,22 @@
   /* ---------- layout (adapts to the size of the network) ---------- */
   function layout() {
     const I = info(), { sz, L } = I, lv = level(), maxN = Math.max(...sz);
-    const P = [{ PW: 52, PH: 52, gap: 172, sp: L >= 3 ? 260 : 310, tail: 200 }, { PW: 42, PH: 42, gap: 100, sp: 230, tail: 160 }, { PW: 34, PH: 34, gap: 66, sp: 200, tail: 130 }][lv];
+    const P = [{ PW: 52, PH: 52, gap: 140, sp: L >= 3 ? 260 : 310, tail: 200 }, { PW: 42, PH: 42, gap: 100, sp: 230, tail: 160 }, { PW: 34, PH: 34, gap: 66, sp: 200, tail: 130 }][lv];
     const VH = Math.max(380, maxN * P.gap + 110), X0 = 70, cx = [X0]; for (let l = 1; l <= L; l++) cx[l] = X0 + l * P.sp;
     const y = (l, j) => VH / 2 + (j - (sz[l] - 1) / 2) * P.gap, LX = cx[L] + P.PW / 2 + P.tail;
     return Object.assign(I, P, { lv, VH, cx, y, LX, WD: LX + 120 });
   }
   function neuronSVG(G, l, j, rvz, rva) {
     const { cfg, nIdx, cx, y, PW, lv, L } = G, n = nIdx[l][j], yy = y(l, j), R = PW / 2, m = NA.m, isOut = l === L, zv = m.z[l - 1][j], av = m.a[l][j], x = cx[l];
-    const fs = lv === 0 ? 14 : lv === 1 ? 12.5 : 11, back = NA.g.on && NA.g.back;
-    const active = V(rvz) === 'enter' || V(rva) === 'enter', showVals = NA.vals && !back && (lv === 0 || NA.sel === 'n' + n || active);
+    const fs = lv === 0 ? 14 : lv === 1 ? 12.5 : 11, cy = yy - R - 17;
     let s = `<g class="nd ${V(rvz)}"><circle cx="${x}" cy="${yy}" r="${R}" fill="${isOut ? AC.out : AC.hid}" stroke="#fff" stroke-width="3"/><text x="${x}" y="${yy + fs * .36}" text-anchor="middle" font-size="${fs}" font-weight="700" fill="#fff">z${n}</text></g>`;
-    if (lv === 0) s += chip(`b${n}=${NF(cfg.b[l - 1][j])}`, x, yy - R - 12, 'middle', rvz);
-    const bw = Math.max(32, actLabel(l).length * 7.5 + 16), zc = yy + R + 14, bc = showVals ? zc + 27 : zc, ac = bc + 27;
-    if (showVals) s += chipH(`z${n}=${NF(zv)}`, x, zc + 4, 'middle', V(rvz), false);
-    s += `<g class="nd ${V(rva)}"><rect x="${x - bw / 2}" y="${bc - 11}" width="${bw}" height="22" rx="11" fill="${actCol(l)}" stroke="#fff" stroke-width="2.5"/><text x="${x}" y="${bc + 4.5}" text-anchor="middle" font-size="${lv === 2 ? 11 : 12.5}" font-weight="700" ${actLabel(l) === 'σ' ? 'font-family="Georgia,serif" font-style="italic"' : ''} fill="${actDark(l) ? '#3b2f00' : '#fff'}">${actLabel(l)}</text></g>`;
-    if (showVals) s += chipH(`${isOut ? 'ŷ' + (j + 1) : 'a' + n}=${NF(av)}`, x, ac + 4, 'middle', V(rva), false);
+    const bw = Math.max(32, actLabel(l).length * 7.5 + 16);
+    s += `<g class="nd ${V(rva)}"><rect x="${x - bw / 2}" y="${cy - 11}" width="${bw}" height="22" rx="11" fill="${actCol(l)}" stroke="#fff" stroke-width="2.5"/><text x="${x}" y="${cy + 4.5}" text-anchor="middle" font-size="${lv === 2 ? 11 : 12.5}" font-weight="700" ${actLabel(l) === 'σ' ? 'font-family="Georgia,serif" font-style="italic"' : ''} fill="${actDark(l) ? '#3b2f00' : '#fff'}">${actLabel(l)}</text></g>`;
+    if (lv < 2 && NA.vals && !(NA.g.on && NA.g.back)) {
+      s += chipH(`z${n}=${NF(zv)}`, x - bw / 2 - 5, cy + 4, 'end', V(rvz), false);
+      s += chipH(`${isOut ? 'ŷ' + (j + 1) : 'a' + n}=${NF(av)}`, x + bw / 2 + 5, cy + 4, 'start', V(rva), false);
+    }
+    if (lv === 0) s += chip(`b${n}=${NF(cfg.b[l - 1][j])}`, x, yy + R + 20, 'middle', rvz);
     return s;
   }
   function draw() {
@@ -110,7 +111,7 @@
       const k = wIdx[l][j][i], w = cfg.W[l - 1][j][i], rvz = RV.z[l][j];
       const x1 = l === 1 ? cx[0] + ir : cx[l - 1] + PW / 2, y1 = y(l - 1, i), x2 = cx[l] - PW / 2, y2 = y(l, j);
       const dx = x2 - x1, dy = y2 - y1, wd = (lv === 2 ? .8 : 1.2) + (lv === 2 ? 2.2 : 3.6) * Math.abs(w) / mxw, col = w >= 0 ? 'p' : 'n';
-      const len = Math.hypot(dx, dy) || 1, dd = Math.min(len * .6, (l === 1 ? 44 : 64) + (j % 2) * 30), px = x1 + dx / len * dd, py = y1 + dy / len * dd;
+      const len = Math.hypot(dx, dy) || 1, dd0 = (l === 1 ? 50 : 84) + (j % 2) * 30, dd = Math.min(len * .7, (l > 1 && dy < 0) ? Math.max(dd0, (130 - PW / 2) / Math.max(.2, dx / len)) : dd0), px = x1 + dx / len * dd, py = y1 + dy / len * dd;
       const showChip = lv === 0 || (lv === 1 && (NA.sel === 'w' + k || V(rvz) === 'enter'));
       s += PT('w' + k, `weight w${k}`, Hit([[x1, y1], [x2, y2]], rvz) + Ln([[x1, y1], [x2 - 2, y2]], col, rvz, wd, lv < 2, .85) + (showChip ? chip(`w${k}=${NF(w)}`, px, py + 4, 'middle', rvz) : ''));
       if (bk) { const rb = gid('dw', l); s += Gr([[x2 - 6, y2 + 6], [x1 + 6, y1 + 6]], rb, lv === 2 ? 1.6 : 2.4); if (lv === 0) s += gchip(`dw${k} = ${NF(gr.dW[l - 1][j][i])}`, px, py + 26, 'middle', rb); }
@@ -149,9 +150,9 @@
       const n = +nm.slice(1), [l, j] = locateN(G, n), prev = m.a[l - 1], a = actName(l), isOut = l === L;
       const zTex = () => { const terms = prev.map((v, i) => R`w_{${wIdx[l][j][i]}}\,${l === 1 ? 'x' : 'a'}_{${l === 1 ? i + 1 : nIdx[l - 1][i]}}`).join('+'); return [R`z_{${n}}=${terms}+b_{${n}}`, R`z_{${n}}=${prev.map((v, i) => `(${NF(cfg.W[l - 1][j][i])})(${NF(v)})`).join('+')}+(${NF(cfg.b[l - 1][j])})=${NF(m.z[l - 1][j])}`]; };
       const aTex = () => a === 'softmax' ? [R`\hat y_c=\dfrac{e^{z_c}}{\sum_q e^{z_q}}`, R`\hat y=${bmc(m.a[L])}`] : [R`a_{${n}}=${actTex(l)}(z_{${n}})=${actTex(l)}(${NF(m.z[l - 1][j])})=${NF(m.a[l][j])}`];
-      if (part === 'z') { title = `z${n}: the weighted sum of neuron ${n}`; what = `**z${n}** multiplies every incoming value by its weight, adds them up and adds the bias **b${n}**. It is the value shown under the node.`; tex = zTex(); why = 'Every neuron has its own weights, so it can listen to the inputs in its own way.'; }
+      if (part === 'z') { title = `z${n}: the weighted sum of neuron ${n}`; what = `**z${n}** multiplies every incoming value by its weight, adds them up and adds the bias **b${n}**. It is the value shown above the node, left of the function badge.`; tex = zTex(); why = 'Every neuron has its own weights, so it can listen to the inputs in its own way.'; }
       else if (part === 'a') { title = `a${n}: ${a === 'identity' || a === 'linear' ? 'the identity' : a} turns z${n} into a${n}`; what = (a === 'sigmoid' ? 'Sigmoid squeezes any number into 0 to 1.' : a === 'tanh' ? 'tanh squeezes any number into −1 to 1.' : a === 'relu' ? 'ReLU keeps positive numbers and turns negative numbers into 0.' : a === 'softmax' ? 'Softmax turns all the output z values into probabilities that add up to 1.' : 'The identity leaves the number as it is.') + (isOut ? ` The result is the prediction **ŷ${j + 1}**.` : ` **a${n}** is sent to every neuron of the next layer.`); tex = aTex(); why = 'Without this bend the whole network would be one big straight-line calculation.'; }
-      else { title = `Neuron ${n}: z${n} → ${isOut ? 'ŷ' + (j + 1) : 'a' + n}`; what = `Under the node, top to bottom: **z${n}** (weighted sum), the function (**${actLabel(l)}**), then **${isOut ? 'ŷ' + (j + 1) + ' = a' + n : 'a' + n}**. Above the node is its bias **b${n}**. Click the node to look inside.`; tex = zTex().concat(aTex()); }
+      else { title = `Neuron ${n}: z${n} → ${isOut ? 'ŷ' + (j + 1) : 'a' + n}`; what = `Above the node, left to right: **z${n}** (weighted sum), the function (**${actLabel(l)}**), then **${isOut ? 'ŷ' + (j + 1) + ' = a' + n : 'a' + n}**. Below the node is its bias **b${n}**. Click the node to look inside.`; tex = zTex().concat(aTex()); }
     } else if (/^w\d+$/.test(nm)) {
       const k = +nm.slice(1); let f = null;
       for (let l = 1; l <= L; l++) for (let j = 0; j < sz[l]; j++) for (let i = 0; i < sz[l - 1]; i++) if (wIdx[l][j][i] === k) f = { l, j, i };
@@ -250,7 +251,7 @@
       <div class="archcap" id="a-cap"></div>
       <div class="archgrid"><div class="archstage" id="a-stage"><div class="archwrap" id="a-wrap"><svg id="a-svg"></svg></div><div class="insideov" id="a-ov"></div></div><aside class="archinfo" id="a-info"></aside></div>
       <div class="wkey" id="a-key"></div>
-      <div class="archleg"><span><i style="background:${AC.x}"></i>input x</span><span><i style="background:${AC.hid}"></i>hidden neuron (z)</span><span><i style="background:${AC.out}"></i>output neuron (ŷ)</span><span><i style="background:${AC.sig}"></i>badge: activation function</span><span>below a node: z value, then function, then a value</span><span><i style="background:${AC.loss}"></i>loss</span><span><i style="background:${AC.pos}"></i>weight &gt; 0</span><span><i style="background:${AC.neg}"></i>weight &lt; 0</span><span><i style="background:${AC.g}"></i>gradient (backward)</span></div>`;
+      <div class="archleg"><span><i style="background:${AC.x}"></i>input x</span><span><i style="background:${AC.hid}"></i>hidden neuron (z)</span><span><i style="background:${AC.out}"></i>output neuron (ŷ)</span><span><i style="background:${AC.sig}"></i>badge: activation function</span><span>above a node: z value · function · a value</span><span><i style="background:${AC.loss}"></i>loss</span><span><i style="background:${AC.pos}"></i>weight &gt; 0</span><span><i style="background:${AC.neg}"></i>weight &lt; 0</span><span><i style="background:${AC.g}"></i>gradient (backward)</span></div>`;
       $('#a-run').onclick = e => { const b = e.target.closest('button'); if (!b) return; gStop(); const r = b.dataset.r; NA.g.on = r !== '0'; NA.g.back = r === '2'; NA.g.s = 0; NA.sel = null; NA.zoom = null; renderArch(); };
       $('#a-vals').onchange = e => { NA.vals = e.target.checked; renderArch(); };
       $('#a-zp').onclick = () => { NA.zoom = (NA.zoom || fit()) * 1.2; renderArch(); }; $('#a-zm').onclick = () => { NA.zoom = (NA.zoom || fit()) / 1.2; renderArch(); }; $('#a-fit').onclick = () => { NA.zoom = null; renderArch(); };
@@ -269,7 +270,7 @@
     const gd = NA.g.on;
     document.querySelectorAll('#a-run button').forEach(b => b.classList.toggle('on', (b.dataset.r === '0' && !gd) || (b.dataset.r === '1' && gd && !NA.g.back) || (b.dataset.r === '2' && gd && NA.g.back)));
     $('#a-vl').style.display = gd ? 'none' : ''; $('#a-gbar').style.display = gd ? '' : 'none';
-    $('#a-cap').style.display = gd ? 'none' : ''; $('#a-cap').innerHTML = rt('Every neuron is one round node **z**. Above it is its **bias b**. Below it you read from top to bottom: the calculated **z** value, the **activation function**, and the resulting **a** value, which is what the next weights multiply. Click any node, weight, the target or the loss. Weights are numbered **w1, w2, …** input by input.');
+    $('#a-cap').style.display = gd ? 'none' : ''; $('#a-cap').innerHTML = rt('Every neuron is one round node **z**. Above it you read, left to right: the calculated **z** value, the **activation function**, and the resulting **a** value, which is what the next weights multiply. Below it is its **bias b**. Click any node, weight, the target or the loss. Weights are numbered **w1, w2, …** input by input.');
     if (gd) { const n = seq().length; $('#g-dots').innerHTML = seq().map((_, i) => `<i class="${i < NA.g.s ? 'd' : i === NA.g.s ? 'a' : ''}" data-i="${i}" title="${esc2(seq()[i].t)}"></i>`).join(''); $('#g-play').textContent = NA.g.play ? '⏸ Pause' : '▶ Play'; $('#g-prev').disabled = NA.g.s === 0; $('#g-next').disabled = NA.g.s === n - 1; }
     const g = draw(), svg = $('#a-svg'), z = NA.zoom || fit(g.W, g.H); svg.setAttribute('viewBox', `0 0 ${g.W} ${g.H}`); svg.style.width = Math.round(g.W * z) + 'px'; svg.style.height = Math.round(g.H * z) + 'px'; svg.innerHTML = g.html; NA._W = g.W; NA._H = g.H;
     $('#a-key').innerHTML = keyHTML();

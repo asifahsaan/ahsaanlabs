@@ -17,8 +17,7 @@
   var IS_LAB = /\/dl\/[\w-]+\.html$/.test(path);
   var LAB = (path.match(/\/dl\/([\w-]+)\.html$/) || [])[1] || (/admin\.html$/.test(path) ? 'admin' : 'hub');
   var TEST_QH = parseFloat((location.search.match(/[?&]qh=([\d.]+)/) || [])[1]) || 5;
-  var FREE = false;
-  try { if (IS_LAB && ENABLED && !localStorage.getItem('labs_free_' + LAB)) { FREE = true; localStorage.setItem('labs_free_' + LAB, String(Date.now())); } } catch (e) { }
+  var FREE = false; /* the free part is now the first 70% of the forward pass (see installLimits) */
   var state = { ready: false, user: null, ok: false, msg: '', free: FREE, quota: null };
   var listeners = [];
   var api = { cfg: CFG, test: TEST, enabled: ENABLED, state: state, onChange: function (f) { listeners.push(f); if (state.ready) f(state); }, signIn: signIn, signOut: signOut, firebase: function () { return fbP; }, isAdmin: isAdmin, roleOf: roleOf };
@@ -165,9 +164,10 @@
     render();
   }
   function closeModal() { root.querySelector('#authmodal').classList.remove('on'); }
-  function openModal() {
+  function openModal(why) {
     var m = root.querySelector('#authmodal'); if (state.ok || state.failOpen) return;
-    root.querySelector('#authbody').innerHTML = '<h3>Sign in to run this lab</h3><p style="margin:4px 0">You can look around freely. To run the lab, sign in with your UOL Google account.</p>' +
+    if (typeof why !== 'string') why = '';
+    root.querySelector('#authbody').innerHTML = '<h3>Sign in to continue</h3><p style="margin:4px 0">' + (why ? esc2(why) : 'The start of the forward pass is free. To continue, sign in with your UOL Google account.') + '</p>' +
       (state.msg ? '<div class="err">' + esc2(state.msg) + '</div>' : '') +
       '<button class="g" id="authgo"><svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.3.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>Continue with Google</button>' +
       '<div class="s">Allowed: <b>@' + CFG.domains.teacher + '</b> (teachers) and <b>@' + CFG.domains.student + '</b> (students).</div>' +
@@ -190,12 +190,12 @@
     if (state.ok && state.user.role === 'teacher' && state.quota) qtxt = ' · ⬇ ' + state.quota.left + '/' + state.quota.limit + (state.quota.left === 0 && state.quota.resetsAt ? ' (' + untilTxt(state.quota.resetsAt) + ')' : '');
     if (state.ok) chip.innerHTML = '<span>👤 ' + esc2(state.user.name) + ' · ' + state.user.role + qtxt + '</span><button id="authout">Sign out</button>';
     else if (state.failOpen) chip.innerHTML = '';
-    else chip.innerHTML = '<span>' + (FREE ? '🎁 First run is free' : '🔒 Sign in to run the labs') + '</span><button class="p" id="authin">Sign in</button>';
-    var o = chip.querySelector('#authout'); if (o) o.onclick = signOut; var i = chip.querySelector('#authin'); if (i) i.onclick = openModal;
+    else chip.innerHTML = '<span>' + (IS_LAB ? '🎁 Forward pass is free' : '🔒 Sign in') + '</span><button class="p" id="authin">Sign in</button>';
+    var o = chip.querySelector('#authout'); if (o) o.onclick = signOut; var i = chip.querySelector('#authin'); if (i) i.onclick = function () { openModal(); };
     if (state.ok) closeModal();
     else if (state.msg && state.ready) openModal();
     if (IS_LAB) {
-      if (!state.ok && state.ready && !state.failOpen && !bar) { bar = document.createElement('div'); bar.id = 'authbar'; bar.innerHTML = FREE ? '<span>🎁 <b>Your first run is free.</b> Next time, sign in with your UOL Google account to keep using the labs.</span><button>Sign in now</button>' : '<span>👀 You are looking around. <b>Sign in with your UOL Google account to run this lab.</b></span><button>Sign in</button>'; bar.querySelector('button').onclick = openModal; document.body.insertBefore(bar, document.body.firstChild); }
+      if (!state.ok && state.ready && !state.failOpen && !bar) { bar = document.createElement('div'); bar.id = 'authbar'; bar.innerHTML = '<span>🎁 <b>The start of the forward pass is free.</b> Sign in with your UOL Google account to continue and to use backpropagation, training and everything else.</span><button>Sign in</button>'; bar.querySelector('button').onclick = function () { openModal(); }; document.body.insertBefore(bar, document.body.firstChild); }
       if ((state.ok || state.failOpen) && bar) { bar.remove(); bar = null; }
     }
   }
@@ -211,7 +211,6 @@
     e.preventDefault(); e.stopImmediatePropagation();
     if (e.type === 'click' || e.type === 'keydown') openModal();
   }
-  ['pointerdown', 'mousedown', 'touchstart', 'click', 'keydown', 'input', 'change'].forEach(function (n) { document.addEventListener(n, gate, true); });
 
   /* ---------- downloads: teachers only, limited; usage logging ---------- */
   var ran = false, bypass = false, busy = false;
@@ -221,7 +220,7 @@
     if (bypass) return;
     var t = e.target, btn = inside(t, '#po-dl') || inside(t, '#px-go') || inside(t, '#pdfbtn') || inside(t, '#pptxbtn');
     if (!btn) {
-      if (IS_LAB && !ran && !inside(t, '#authroot') && !inside(t, '.topnav') && !inside(t, '#authbar') && (state.ok || (FREE && state.ready))) { ran = true; api.log('run', state.ok ? '' : 'free'); }
+      if (IS_LAB && !ran && !inside(t, '#authroot') && !inside(t, '.topnav') && !inside(t, '#authbar') && (state.ok || state.ready)) { ran = true; api.log('run', state.ok ? '' : 'guest'); }
       return;
     }
     var role = state.user && state.user.role, isDl = btn.id === 'po-dl' || btn.id === 'px-go';
@@ -251,8 +250,42 @@
     if (!s.ok) lastUid = null;
   });
 
+
+  /* ---------- guests: only the first 70% of the forward pass, Step by step tab only ---------- */
+  var pendingGo = null;
+  function guest() { return IS_LAB && state.ready && !state.ok && !state.failOpen; }
+  function installLimits() {
+    if (!IS_LAB || window.__labsLimits) return;
+    if (typeof go !== 'function' || typeof setTab !== 'function' || typeof steps === 'undefined') return;
+    window.__labsLimits = true;
+    var _go = window.go, _setTab = window.setTab;
+    function limit() {
+      var f0 = -1, fc = 0;
+      for (var i = 0; i < steps.length; i++) { if (steps[i].ph === 'F') { if (f0 < 0) f0 = i; fc++; } }
+      if (f0 < 0) return Infinity;
+      return f0 + Math.max(1, Math.floor(fc * 0.7));
+    }
+    window.go = function (i) {
+      if (guest() && i >= limit()) {
+        try { stopPlay(); } catch (e) { }
+        pendingGo = i; _go(S.i);
+        openModal('You have seen the first part of the forward pass. Sign in with your UOL Google account to see the rest and to continue with backpropagation, training and the other tabs.');
+        return;
+      }
+      return _go(i);
+    };
+    window.setTab = function (tb) {
+      if (guest() && tb !== 'step') {
+        openModal('This tab is for signed-in users. Sign in with your UOL Google account to open it.');
+        return;
+      }
+      return _setTab(tb);
+    };
+    api.onChange(function (s) { if (s.ok && pendingGo != null) { var g = pendingGo; pendingGo = null; try { window.go(g); } catch (e) { } } });
+  }
+
   var visited = false;
   api.onChange(function (s) { if (s.ready && !visited) { visited = true; api.log('visit', ''); } });
-  function start() { if (IS_LAB) document.body.classList.add('nodl'); if (!/admin\.html$/.test(path)) mount(); backend.init(); }
+  function start() { if (IS_LAB) document.body.classList.add('nodl'); if (!/admin\.html$/.test(path)) mount(); installLimits(); backend.init(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();

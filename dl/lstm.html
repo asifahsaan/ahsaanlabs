@@ -245,7 +245,19 @@ details.concepts:not([open])>summary:after{content:" · tap to read"}
 .panel.opening{animation:popopen .38s cubic-bezier(.2,.9,.3,1.08) both}
 .panel.closing{animation:popclose .23s ease-in both}
 @keyframes popopen{from{opacity:0;transform:scale(.12)}to{opacity:1;transform:none}}
-@keyframes popclose{to{opacity:0;transform:scale(.12)}}
+@keyframes popclose{to{opacity:0;transform:scale(.12)}}/* ---- modern segmented controls (Architecture bar, Story presets) ---- */
+.archbar .seg,.storytop .seg{display:inline-flex;flex-wrap:wrap;gap:3px;padding:4px;background:#EEF2F7;border:1px solid #DDE5EE;border-radius:14px;overflow:visible}
+.archbar .seg button,.storytop .seg button{border:0;background:transparent;color:#475569;font:600 13.5px/1 inherit;font-family:inherit;padding:10px 16px;border-radius:10px;cursor:pointer;transition:background .2s,color .2s,box-shadow .2s;white-space:nowrap}
+.archbar .seg button:hover:not(.on),.storytop .seg button:hover:not(.on){background:rgba(255,255,255,.85);color:#1b2430}
+.archbar .seg button.on,.storytop .seg button.on{background:var(--acc);color:#fff;box-shadow:0 2px 8px rgba(43,122,155,.35)}
+.archbar .seg button:focus-visible,.storytop .seg button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.archbar label.note{display:inline-flex;align-items:center;gap:6px;background:#EEF2F7;border:1px solid #DDE5EE;border-radius:12px;padding:8px 12px;font-weight:600;cursor:pointer}
+.archbar label.note input{accent-color:var(--acc);width:15px;height:15px}
+.zoomb{display:inline-flex;gap:3px;padding:4px;background:#EEF2F7;border:1px solid #DDE5EE;border-radius:14px}
+.zoomb .btn{border:0;background:transparent;border-radius:10px;padding:8px 13px;font-weight:700}
+.zoomb .btn:hover{background:rgba(255,255,255,.85)}
+.gbarx .btn{border-radius:10px}
+
 /* ---- LSTM / GRU lab ---- */
 body{padding-top:10px}
 .topnav{font-size:12.5px;margin-bottom:6px;color:var(--mut)}.topnav a{color:var(--acc);text-decoration:none;font-weight:600}

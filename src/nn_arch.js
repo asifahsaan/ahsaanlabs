@@ -4,9 +4,10 @@
   const AC = { x: '#475569', hid: '#2B7A9B', out: '#7C3AED', sig: '#F5B50A', tan: '#10B981', relu: '#F97316', box: '#E8EEF6', gray: '#94A3B8', loss: '#B7791F', g: '#C0392B', pos: '#2B7A9B', neg: '#E07B39', bias: '#F472B6' };
   const MKS = { p: AC.pos, n: AC.neg, g: AC.g, l: AC.loss, e: '#334155' };
   const NA = { sel: null, zoom: null, vals: true, g: { on: false, back: false, s: 0, play: null }, m: null, gr: null, inside: null };
+  const NF = v => { const r = Math.round(v * 10000) / 10000; return String(Object.is(r, -0) ? 0 : r); };
   const esc2 = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
   const UC = ['#D9730D', '#7C3AED', '#16A34A', '#0E7490', '#B7791F', '#C0392B'];
-  const short = (v, k = 4) => v.length > k ? v.slice(0, k).map(N).join(', ') + ', …' : v.map(N).join(', ');
+  const short = (v, k = 4) => v.length > k ? v.slice(0, k).map(NF).join(', ') + ', …' : v.map(NF).join(', ');
   /* ---------- numbering: neurons 1..N and weights w1..wW (input by input) ---------- */
   function info() {
     const cfg = S.cfg, sz = cfg.sizes, L = sz.length - 1, nIdx = [], wIdx = [];
@@ -34,15 +35,15 @@
       if (per) {
         for (let j = 0; j < sz[l]; j++) {
           const n = nIdx[l][j];
-          rv.z[l][j] = id; out.push({ id: id++, t: `z${n}: add up the weighted inputs`, from: `${l === 1 ? 'the inputs' : 'the previous layer'} and the weights`, to: `z${n}`, k: ['n' + n], part: 'z', say: `Neuron ${n} multiplies each incoming value by its weight, adds them up and adds its bias. The left half of the node shows this sum, **z${n}**.` });
-          if (!soft) { rv.a[l][j] = id; out.push({ id: id++, t: `a${n}: pass z${n} through ${actName(l) === 'linear' || actName(l) === 'identity' ? 'the identity' : actName(l)}`, from: `z${n}`, to: l === L ? `ŷ${j + 1} (a${n})` : `a${n}`, k: ['n' + n], part: 'a', say: `The function badge on top bends **z${n}** into **a${n}**${l === L ? ', the prediction ŷ' + (j + 1) : ''}, shown on the right half. Click the node to look inside.` }); }
+          rv.z[l][j] = id; out.push({ id: id++, t: `z${n}: add up the weighted inputs`, from: `${l === 1 ? 'the inputs' : 'the previous layer'} and the weights`, to: `z${n}`, k: ['n' + n], part: 'z', say: `Neuron ${n} multiplies each incoming value by its weight, adds them up and adds its bias. The node is called **z${n}**, and this sum appears under it.` });
+          if (!soft) { rv.a[l][j] = id; out.push({ id: id++, t: `a${n}: pass z${n} through ${actName(l) === 'linear' || actName(l) === 'identity' ? 'the identity' : actName(l)}`, from: `z${n}`, to: l === L ? `ŷ${j + 1} (a${n})` : `a${n}`, k: ['n' + n], part: 'a', say: `The function badge under the node bends **z${n}** into **a${n}**${l === L ? ', the prediction ŷ' + (j + 1) : ''}, and the new value appears below the badge. Click the node to look inside.` }); }
         }
         if (soft) { const idd = id; for (let j = 0; j < sz[l]; j++) rv.a[l][j] = idd; out.push({ id: id++, t: 'Softmax turns all the z values into probabilities', from: nIdx[l].map(n => 'z' + n).join(', '), to: nIdx[l].map((n, j) => 'ŷ' + (j + 1)).join(', '), k: ['n' + nIdx[l][0]], part: 'a', say: 'Softmax looks at all the output z values together and gives each a share of 100%.' }); }
       } else {
         const zid = id; for (let j = 0; j < sz[l]; j++) rv.z[l][j] = zid;
         out.push({ id: id++, t: `Layer ${l}: every neuron adds up its weighted inputs`, from: `${l === 1 ? 'the inputs' : 'the previous layer'} and the weights`, to: `z${n1} … z${nK}`, k: ['n' + n1], part: 'z', say: `All ${sz[l]} neurons of layer ${l} compute their weighted sum at the same time (z${n1} to z${nK}). Click any node to see its own calculation.` });
         const aid = id; for (let j = 0; j < sz[l]; j++) rv.a[l][j] = aid;
-        out.push({ id: id++, t: `Layer ${l}: the ${actName(l)} function gives a${n1} … a${nK}`, from: `z${n1} … z${nK}`, to: l === L ? 'the predictions ŷ' : `a${n1} … a${nK}`, k: ['n' + n1], part: 'a', say: `The function badge turns every z into its a${l === L ? ' (the prediction ŷ)' : ''}.` });
+        out.push({ id: id++, t: `Layer ${l}: the ${actName(l)} function gives a${n1} … a${nK}`, from: `z${n1} … z${nK}`, to: l === L ? 'the predictions ŷ' : `a${n1} … a${nK}`, k: ['n' + n1], part: 'a', say: `The function badges turn every z into its a${l === L ? ' (the prediction ŷ)' : ''}.` });
       }
     }
     rv.tg = id; out.push({ id: id++, t: 'The target: the answer we wanted', from: 'the data', to: 'target t', k: ['tg'], say: 'The target is the correct answer. The loss will compare the prediction with it.' });
@@ -79,22 +80,21 @@
   /* ---------- layout (adapts to the size of the network) ---------- */
   function layout() {
     const I = info(), { sz, L } = I, lv = level(), maxN = Math.max(...sz);
-    const P = [{ PW: 52, PH: 52, gap: 124, sp: L >= 3 ? 250 : 300, tail: 200 }, { PW: 42, PH: 42, gap: 86, sp: 230, tail: 160 }, { PW: 34, PH: 34, gap: 60, sp: 200, tail: 130 }][lv];
+    const P = [{ PW: 52, PH: 52, gap: 172, sp: L >= 3 ? 260 : 310, tail: 200 }, { PW: 42, PH: 42, gap: 100, sp: 230, tail: 160 }, { PW: 34, PH: 34, gap: 66, sp: 200, tail: 130 }][lv];
     const VH = Math.max(380, maxN * P.gap + 110), X0 = 70, cx = [X0]; for (let l = 1; l <= L; l++) cx[l] = X0 + l * P.sp;
     const y = (l, j) => VH / 2 + (j - (sz[l] - 1) / 2) * P.gap, LX = cx[L] + P.PW / 2 + P.tail;
-    return Object.assign(I, P, { lv, VH, cx, y, LX, W: LX + 120 });
+    return Object.assign(I, P, { lv, VH, cx, y, LX, WD: LX + 120 });
   }
   function neuronSVG(G, l, j, rvz, rva) {
     const { cfg, nIdx, cx, y, PW, lv, L } = G, n = nIdx[l][j], yy = y(l, j), R = PW / 2, m = NA.m, isOut = l === L, zv = m.z[l - 1][j], av = m.a[l][j], x = cx[l];
-    const fs = lv === 0 ? 14 : lv === 1 ? 12.5 : 11, cy = yy - R - 17;
+    const fs = lv === 0 ? 14 : lv === 1 ? 12.5 : 11, back = NA.g.on && NA.g.back;
+    const active = V(rvz) === 'enter' || V(rva) === 'enter', showVals = NA.vals && !back && (lv === 0 || NA.sel === 'n' + n || active);
     let s = `<g class="nd ${V(rvz)}"><circle cx="${x}" cy="${yy}" r="${R}" fill="${isOut ? AC.out : AC.hid}" stroke="#fff" stroke-width="3"/><text x="${x}" y="${yy + fs * .36}" text-anchor="middle" font-size="${fs}" font-weight="700" fill="#fff">z${n}</text></g>`;
-    const bw = Math.max(32, actLabel(l).length * 7.5 + 16);
-    s += `<g class="nd ${V(rva)}"><rect x="${x - bw / 2}" y="${cy - 11}" width="${bw}" height="22" rx="11" fill="${actCol(l)}" stroke="#fff" stroke-width="2.5"/><text x="${x}" y="${cy + 4.5}" text-anchor="middle" font-size="${lv === 2 ? 11 : 12.5}" font-weight="700" ${actLabel(l) === 'σ' ? 'font-family="Georgia,serif" font-style="italic"' : ''} fill="${actDark(l) ? '#3b2f00' : '#fff'}">${actLabel(l)}</text></g>`;
-    if (lv < 2 && NA.vals && !(NA.g.on && NA.g.back)) {
-      s += chipH(`z${n}=${N(zv)}`, x - bw / 2 - 5, cy + 4, 'end', V(rvz), false);
-      s += chipH(`${isOut ? 'ŷ' + (j + 1) : 'a' + n}=${N(av)}`, x + bw / 2 + 5, cy + 4, 'start', V(rva), false);
-    }
-    if (lv === 0) s += chip(`b${n}=${N(cfg.b[l - 1][j])}`, x, yy + R + 20, 'middle', rvz);
+    if (lv === 0) s += chip(`b${n}=${NF(cfg.b[l - 1][j])}`, x, yy - R - 12, 'middle', rvz);
+    const bw = Math.max(32, actLabel(l).length * 7.5 + 16), zc = yy + R + 14, bc = showVals ? zc + 27 : zc, ac = bc + 27;
+    if (showVals) s += chipH(`z${n}=${NF(zv)}`, x, zc + 4, 'middle', V(rvz), false);
+    s += `<g class="nd ${V(rva)}"><rect x="${x - bw / 2}" y="${bc - 11}" width="${bw}" height="22" rx="11" fill="${actCol(l)}" stroke="#fff" stroke-width="2.5"/><text x="${x}" y="${bc + 4.5}" text-anchor="middle" font-size="${lv === 2 ? 11 : 12.5}" font-weight="700" ${actLabel(l) === 'σ' ? 'font-family="Georgia,serif" font-style="italic"' : ''} fill="${actDark(l) ? '#3b2f00' : '#fff'}">${actLabel(l)}</text></g>`;
+    if (showVals) s += chipH(`${isOut ? 'ŷ' + (j + 1) : 'a' + n}=${NF(av)}`, x, ac + 4, 'middle', V(rva), false);
     return s;
   }
   function draw() {
@@ -110,35 +110,35 @@
       const k = wIdx[l][j][i], w = cfg.W[l - 1][j][i], rvz = RV.z[l][j];
       const x1 = l === 1 ? cx[0] + ir : cx[l - 1] + PW / 2, y1 = y(l - 1, i), x2 = cx[l] - PW / 2, y2 = y(l, j);
       const dx = x2 - x1, dy = y2 - y1, wd = (lv === 2 ? .8 : 1.2) + (lv === 2 ? 2.2 : 3.6) * Math.abs(w) / mxw, col = w >= 0 ? 'p' : 'n';
-      const frac = .2 + .6 * (sz[l] > 1 ? j / (sz[l] - 1) : .5), px = x1 + dx * frac, py = y1 + dy * frac;
+      const len = Math.hypot(dx, dy) || 1, dd = Math.min(len * .6, (l === 1 ? 44 : 64) + (j % 2) * 30), px = x1 + dx / len * dd, py = y1 + dy / len * dd;
       const showChip = lv === 0 || (lv === 1 && (NA.sel === 'w' + k || V(rvz) === 'enter'));
-      s += PT('w' + k, `weight w${k}`, Hit([[x1, y1], [x2, y2]], rvz) + Ln([[x1, y1], [x2 - 2, y2]], col, rvz, wd, lv < 2, .85) + (showChip ? chip(`w${k} = ${N(w)}`, px, py + 4, 'middle', rvz) : ''));
-      if (bk) { const rb = gid('dw', l); s += Gr([[x2 - 6, y2 + 6], [x1 + 6, y1 + 6]], rb, lv === 2 ? 1.6 : 2.4); if (lv === 0) s += gchip(`dw${k} = ${N(gr.dW[l - 1][j][i])}`, px, py + 26, 'middle', rb); }
+      s += PT('w' + k, `weight w${k}`, Hit([[x1, y1], [x2, y2]], rvz) + Ln([[x1, y1], [x2 - 2, y2]], col, rvz, wd, lv < 2, .85) + (showChip ? chip(`w${k}=${NF(w)}`, px, py + 4, 'middle', rvz) : ''));
+      if (bk) { const rb = gid('dw', l); s += Gr([[x2 - 6, y2 + 6], [x1 + 6, y1 + 6]], rb, lv === 2 ? 1.6 : 2.4); if (lv === 0) s += gchip(`dw${k} = ${NF(gr.dW[l - 1][j][i])}`, px, py + 26, 'middle', rb); }
     }
     /* inputs */
-    for (let i = 0; i < sz[0]; i++) s += PT('x', `input x${i + 1}`, `<g class="nd ${V(RV.x)}"><circle cx="${cx[0]}" cy="${y(0, i)}" r="${ir}" fill="${AC.x}" stroke="#fff" stroke-width="3"/><text x="${cx[0]}" y="${y(0, i) - 2}" text-anchor="middle" font-size="${lv === 2 ? 10 : 12}" font-weight="700" fill="#fff">x${i + 1}</text><text x="${cx[0]}" y="${y(0, i) + 11}" text-anchor="middle" font-size="${lv === 2 ? 8.5 : 10}" fill="#E2E8F0" class="tnum">${N(cfg.x[i])}</text></g>`);
+    for (let i = 0; i < sz[0]; i++) s += PT('x', `input x${i + 1}`, `<g class="nd ${V(RV.x)}"><circle cx="${cx[0]}" cy="${y(0, i)}" r="${ir}" fill="${AC.x}" stroke="#fff" stroke-width="3"/><text x="${cx[0]}" y="${y(0, i) - 2}" text-anchor="middle" font-size="${lv === 2 ? 10 : 12}" font-weight="700" fill="#fff">x${i + 1}</text><text x="${cx[0]}" y="${y(0, i) + 11}" text-anchor="middle" font-size="${lv === 2 ? 8.5 : 10}" fill="#E2E8F0" class="tnum">${NF(cfg.x[i])}</text></g>`);
     /* neurons */
     for (let l = 1; l <= L; l++) for (let j = 0; j < sz[l]; j++) {
       const n = nIdx[l][j], yy = y(l, j), rvz = RV.z[l][j], rva = RV.a[l][j];
       s += PT('n' + n, `neuron ${n}: z${n}, then ${actName(l)} gives a${n}`, neuronSVG(G, l, j, rvz, rva));
       if (bk) {
         const gz = gr.dz[l - 1][j], rbz = gid('dz', l);
-        s += Gr([[cx[l] + PW / 4, yy + PH / 2 + 8], [cx[l] - PW / 4, yy + PH / 2 + 8]], rbz, 2.6);
-        if (lv < 2) { s += gchip(`δz${n} = ${N(gz)}`, cx[l] - PW / 4, yy + PH / 2 + 30, 'middle', rbz); if (l < L) s += gchip(`δa${n} = ${N(gr.da[l][j])}`, cx[l] + PW / 4, yy - PH / 2 - 22, 'middle', gid('da', l)); else s += gchip(`δŷ${j + 1} = ${N(gr.da[L][j])}`, cx[l] + PW / 4, yy - PH / 2 - 22, 'middle', gid('dy', 0)); }
+        s += Gr([[cx[l] + PW / 3, yy + PH / 2 + 8], [cx[l] - PW / 3, yy + PH / 2 + 8]], rbz, 2.6);
+        if (lv < 2) { s += gchip(`δz${n}=${NF(gz)}`, cx[l], yy + PH / 2 + 26, 'middle', rbz); if (l < L) s += gchip(`δa${n}=${NF(gr.da[l][j])}`, cx[l], yy - PH / 2 - 12, 'middle', gid('da', l)); else s += gchip(`δŷ${j + 1}=${NF(gr.da[L][j])}`, cx[l], yy - PH / 2 - 12, 'middle', gid('dy', 0)); }
       }
     }
     /* loss + target */
     const yl = G.VH / 2, yt = yl + (lv === 2 ? 90 : 112), lr = lv === 2 ? 22 : 26;
     s += PT('loss', 'loss', sz[L] <= 12 ? [...Array(sz[L]).keys()].map(j => Hit([[cx[L] + PW / 2, y(L, j)], [LX - lr, yl]], RV.loss) + Ln([[cx[L] + PW / 2, y(L, j)], [LX - lr - 2, yl + (j - (sz[L] - 1) / 2) * 3]], 'l', RV.loss, 2.2, lv < 2)).join('') : Ln([[cx[L] + PW / 2, yl], [LX - lr - 2, yl]], 'l', RV.loss, 3, true));
-    s += PT('loss', 'loss L', `<g class="nd ${V(RV.loss)}"><circle cx="${LX}" cy="${yl}" r="${lr}" fill="${AC.loss}" stroke="#fff" stroke-width="3"/><text x="${LX}" y="${yl + 6}" text-anchor="middle" font-size="18" font-weight="700" fill="#fff">L</text></g>` + chip(`L = ${N(m.L)}`, LX, yl - lr - 14, 'middle', RV.loss));
+    s += PT('loss', 'loss L', `<g class="nd ${V(RV.loss)}"><circle cx="${LX}" cy="${yl}" r="${lr}" fill="${AC.loss}" stroke="#fff" stroke-width="3"/><text x="${LX}" y="${yl + 6}" text-anchor="middle" font-size="18" font-weight="700" fill="#fff">L</text></g>` + chip(`L=${NF(m.L)}`, LX, yl - lr - 14, 'middle', RV.loss));
     const tt = `t = [${short(cfg.t, 4)}]`;
     s += PT('tg', 'the target', Ln([[LX, yt - 22], [LX, yl + lr + 4]], 'e', RV.tg, 2.2) + `<g class="nd ${V(RV.tg)}"><rect x="${LX - 52}" y="${yt - 20}" width="104" height="40" rx="12" fill="${AC.x}" stroke="#fff" stroke-width="3"/><text x="${LX}" y="${yt + 5}" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">target t</text></g>` + chip(tt, LX, yt + 40, 'middle', RV.tg));
     if (bk) { const rb = gid('dy', 0); s += Gr([[LX - lr - 4, yl + 12], [cx[L] + PW / 2 + 8, sz[L] > 12 ? yl + 12 : y(L, Math.floor((sz[L] - 1) / 2)) + 12]], rb, 3); }
     const defs = `<defs>${Object.entries(MKS).map(([k, c]) => `<marker id="ah-${k}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0,0L10,5L0,10z" fill="${c}"/></marker>`).join('')}</defs>`;
-    return { W: G.W, H: G.VH, html: defs + s };
+    return { W: G.WD, H: G.VH, html: defs + s };
   }
   /* ---------- explanations ---------- */
-  const bmc = v => R`\begin{bmatrix}${v.map(N).join(R` \\ `)}\end{bmatrix}`;
+  const bmc = v => R`\begin{bmatrix}${v.map(NF).join(R` \\ `)}\end{bmatrix}`;
   const locateN = (G, n) => { for (let l = 1; l <= G.L; l++) { const j = G.nIdx[l].indexOf(n); if (j >= 0) return [l, j]; } return null; };
   function nInfo(nm, noHead, part) {
     const G = layout(), { cfg, sz, L, nIdx, wIdx } = G, m = NA.m, D = s => K(s, true);
@@ -147,19 +147,19 @@
     if (nm === 'x') { title = 'The inputs'; what = 'These are the numbers that enter the network.'; tex = [R`x=${bmc(cfg.x)}`]; }
     else if (/^n\d+$/.test(nm)) {
       const n = +nm.slice(1), [l, j] = locateN(G, n), prev = m.a[l - 1], a = actName(l), isOut = l === L;
-      const zTex = () => { const terms = prev.map((v, i) => R`w_{${wIdx[l][j][i]}}\,${l === 1 ? 'x' : 'a'}_{${l === 1 ? i + 1 : nIdx[l - 1][i]}}`).join('+'); return [R`z_{${n}}=${terms}+b_{${n}}`, R`z_{${n}}=${prev.map((v, i) => `(${N(cfg.W[l - 1][j][i])})(${N(v)})`).join('+')}+(${N(cfg.b[l - 1][j])})=${N(m.z[l - 1][j])}`]; };
-      const aTex = () => a === 'softmax' ? [R`\hat y_c=\dfrac{e^{z_c}}{\sum_q e^{z_q}}`, R`\hat y=${bmc(m.a[L])}`] : [R`a_{${n}}=${actTex(l)}(z_{${n}})=${actTex(l)}(${N(m.z[l - 1][j])})=${N(m.a[l][j])}`];
-      if (part === 'z') { title = `z${n}: the weighted sum of neuron ${n}`; what = `**z${n}** multiplies every incoming value by its weight, adds them up and adds the bias **b${n}**. It is the left half of the node.`; tex = zTex(); why = 'Every neuron has its own weights, so it can listen to the inputs in its own way.'; }
+      const zTex = () => { const terms = prev.map((v, i) => R`w_{${wIdx[l][j][i]}}\,${l === 1 ? 'x' : 'a'}_{${l === 1 ? i + 1 : nIdx[l - 1][i]}}`).join('+'); return [R`z_{${n}}=${terms}+b_{${n}}`, R`z_{${n}}=${prev.map((v, i) => `(${NF(cfg.W[l - 1][j][i])})(${NF(v)})`).join('+')}+(${NF(cfg.b[l - 1][j])})=${NF(m.z[l - 1][j])}`]; };
+      const aTex = () => a === 'softmax' ? [R`\hat y_c=\dfrac{e^{z_c}}{\sum_q e^{z_q}}`, R`\hat y=${bmc(m.a[L])}`] : [R`a_{${n}}=${actTex(l)}(z_{${n}})=${actTex(l)}(${NF(m.z[l - 1][j])})=${NF(m.a[l][j])}`];
+      if (part === 'z') { title = `z${n}: the weighted sum of neuron ${n}`; what = `**z${n}** multiplies every incoming value by its weight, adds them up and adds the bias **b${n}**. It is the value shown under the node.`; tex = zTex(); why = 'Every neuron has its own weights, so it can listen to the inputs in its own way.'; }
       else if (part === 'a') { title = `a${n}: ${a === 'identity' || a === 'linear' ? 'the identity' : a} turns z${n} into a${n}`; what = (a === 'sigmoid' ? 'Sigmoid squeezes any number into 0 to 1.' : a === 'tanh' ? 'tanh squeezes any number into −1 to 1.' : a === 'relu' ? 'ReLU keeps positive numbers and turns negative numbers into 0.' : a === 'softmax' ? 'Softmax turns all the output z values into probabilities that add up to 1.' : 'The identity leaves the number as it is.') + (isOut ? ` The result is the prediction **ŷ${j + 1}**.` : ` **a${n}** is sent to every neuron of the next layer.`); tex = aTex(); why = 'Without this bend the whole network would be one big straight-line calculation.'; }
-      else { title = `Neuron ${n}: z${n} → ${isOut ? 'ŷ' + (j + 1) : 'a' + n}`; what = `The left half is **z${n}** (weighted sum), the badge on top is the function (**${actLabel(l)}**), the right half is **${isOut ? 'ŷ' + (j + 1) + ' = a' + n : 'a' + n}**. Click the node to look inside.`; tex = zTex().concat(aTex()); }
+      else { title = `Neuron ${n}: z${n} → ${isOut ? 'ŷ' + (j + 1) : 'a' + n}`; what = `Under the node, top to bottom: **z${n}** (weighted sum), the function (**${actLabel(l)}**), then **${isOut ? 'ŷ' + (j + 1) + ' = a' + n : 'a' + n}**. Above the node is its bias **b${n}**. Click the node to look inside.`; tex = zTex().concat(aTex()); }
     } else if (/^w\d+$/.test(nm)) {
       const k = +nm.slice(1); let f = null;
       for (let l = 1; l <= L; l++) for (let j = 0; j < sz[l]; j++) for (let i = 0; i < sz[l - 1]; i++) if (wIdx[l][j][i] === k) f = { l, j, i };
       const from = f.l === 1 ? `x${f.i + 1}` : `a${nIdx[f.l - 1][f.i]}`, to = `z${nIdx[f.l][f.j]}`;
       title = `Weight w${k}`; what = `**w${k}** multiplies **${from}** on its way into **${to}**. Weights are numbered input by input: first all the weights of the first input, then the second, and so on.`;
-      tex = [R`w_{${k}}=${N(cfg.W[f.l - 1][f.j][f.i])}`]; why = 'Training changes the weights to make the loss smaller.';
+      tex = [R`w_{${k}}=${NF(cfg.W[f.l - 1][f.j][f.i])}`]; why = 'Training changes the weights to make the loss smaller.';
     } else if (nm === 'tg') { title = 'The target'; what = 'The answer the network should have given.'; tex = [R`t=${bmc(cfg.t)}`]; }
-    else if (nm === 'loss') { title = 'The loss'; what = cfg.out === 'softmax' ? 'Cross-entropy only looks at the probability of the right answer.' : 'Half the sum of the squared differences between prediction and target.'; tex = [cfg.out === 'softmax' ? R`L=-\sum_k t_k\ln\hat y_k=${N(m.L)}` : R`L=\tfrac12\sum_k(\hat y_k-t_k)^2=${N(m.L)}`]; if (sz[L] <= 6) tex.push(R`\hat y=${bmc(m.a[L])},\; t=${bmc(cfg.t)}`); }
+    else if (nm === 'loss') { title = 'The loss'; what = cfg.out === 'softmax' ? 'Cross-entropy only looks at the probability of the right answer.' : 'Half the sum of the squared differences between prediction and target.'; tex = [cfg.out === 'softmax' ? R`L=-\sum_k t_k\ln\hat y_k=${NF(m.L)}` : R`L=\tfrac12\sum_k(\hat y_k-t_k)^2=${NF(m.L)}`]; if (sz[L] <= 6) tex.push(R`\hat y=${bmc(m.a[L])},\; t=${bmc(cfg.t)}`); }
     else { title = 'Network'; what = 'Click a shape.'; }
     return head(title) + `<p>${rt(what)}</p>` + tex.map(D).join('') + (why ? `<p class="why"><b>Why it exists:</b> ${rt(why)}</p>` : '');
   }
@@ -172,16 +172,16 @@
       else { const f = { sigmoid: R`a(1-a)`, tanh: R`1-a^2`, relu: R`\mathbb 1[z>0]` }[cfg.act]; tex = [R`\delta z=\delta a\odot f'(z),\; f'=${f}`, R`=${bmc(g.da[l])}\odot${bmc(m.a[l].map((a, j) => ACTS[cfg.act].d(m.z[l - 1][j], a)))}=${bmc(dzv(l))}`]; }
     } else if (type === 'dw') {
       let c = 0;
-      outer: for (let j = 0; j < sz[l]; j++) for (let i = 0; i < sz[l - 1]; i++) { if (c++ >= cap) { note = `Showing the first ${cap} weights of this layer (${sz[l] * sz[l - 1]} in total). The rest follow the same rule.`; break outer; } tex.push(R`\partial L/\partial w_{${wIdx[l][j][i]}}=\delta z_{${nIdx[l][j]}}\times ${l === 1 ? 'x' : 'a'}_{${l === 1 ? i + 1 : nIdx[l - 1][i]}}=(${N(dzv(l)[j])})(${N(m.a[l - 1][i])})=${N(g.dW[l - 1][j][i])}`); }
-      for (let j = 0; j < Math.min(sz[l], 8); j++) tex.push(R`\partial L/\partial b_{${nIdx[l][j]}}=\delta z_{${nIdx[l][j]}}=${N(g.db[l - 1][j])}`);
+      outer: for (let j = 0; j < sz[l]; j++) for (let i = 0; i < sz[l - 1]; i++) { if (c++ >= cap) { note = `Showing the first ${cap} weights of this layer (${sz[l] * sz[l - 1]} in total). The rest follow the same rule.`; break outer; } tex.push(R`\partial L/\partial w_{${wIdx[l][j][i]}}=\delta z_{${nIdx[l][j]}}\times ${l === 1 ? 'x' : 'a'}_{${l === 1 ? i + 1 : nIdx[l - 1][i]}}=(${NF(dzv(l)[j])})(${NF(m.a[l - 1][i])})=${NF(g.dW[l - 1][j][i])}`); }
+      for (let j = 0; j < Math.min(sz[l], 8); j++) tex.push(R`\partial L/\partial b_{${nIdx[l][j]}}=\delta z_{${nIdx[l][j]}}=${NF(g.db[l - 1][j])}`);
       note = note || 'Each weight learns from the error at the neuron it feeds, scaled by the value it carried.';
     } else if (type === 'da') {
-      for (let i = 0; i < Math.min(sz[l], cap); i++) { const nx = Math.min(sz[l + 1], 6), ids = [...Array(nx).keys()]; const terms = ids.map(j => R`w_{${wIdx[l + 1][j][i]}}\,\delta z_{${nIdx[l + 1][j]}}`).join('+') + (sz[l + 1] > nx ? '+\\cdots' : ''); const nums = ids.map(j => `(${N(cfg.W[l][j][i])})(${N(dzv(l + 1)[j])})`).join('+') + (sz[l + 1] > nx ? '+\\cdots' : ''); tex.push(R`\delta a_{${nIdx[l][i]}}=${terms}=${nums}=${N(g.da[l][i])}`); }
+      for (let i = 0; i < Math.min(sz[l], cap); i++) { const nx = Math.min(sz[l + 1], 6), ids = [...Array(nx).keys()]; const terms = ids.map(j => R`w_{${wIdx[l + 1][j][i]}}\,\delta z_{${nIdx[l + 1][j]}}`).join('+') + (sz[l + 1] > nx ? '+\\cdots' : ''); const nums = ids.map(j => `(${NF(cfg.W[l][j][i])})(${NF(dzv(l + 1)[j])})`).join('+') + (sz[l + 1] > nx ? '+\\cdots' : ''); tex.push(R`\delta a_{${nIdx[l][i]}}=${terms}=${nums}=${NF(g.da[l][i])}`); }
     }
     return tex.map(D).join('') + (note ? `<div class="read">${esc2(note)}</div>` : '');
   }
   /* ---------- look inside ---------- */
-  const uvec = v => v.slice(0, 12).map((x, j) => `<span class="uv" style="--uc:${UC[j % 6]}"><i>#${j + 1}</i>${N(x)}</span>`).join('') + (v.length > 12 ? `<span class="note">… ${v.length - 12} more</span>` : '');
+  const uvec = v => v.slice(0, 12).map((x, j) => `<span class="uv" style="--uc:${UC[j % 6]}"><i>#${j + 1}</i>${NF(x)}</span>`).join('') + (v.length > 12 ? `<span class="note">… ${v.length - 12} more</span>` : '');
   function inCurve(kind, zs, ys) {
     const W = 360, Hh = 200, p = 34, xr = kind === 'sig' ? [-6, 6] : [-3, 3], yr = kind === 'sig' ? [0, 1] : kind === 'relu' ? [0, 3] : [-1, 1];
     const X = z => p + (Math.max(xr[0], Math.min(xr[1], z)) - xr[0]) / (xr[1] - xr[0]) * (W - 2 * p), Y = y => Hh - p - (Math.max(yr[0], Math.min(yr[1], y)) - yr[0]) / (yr[1] - yr[0]) * (Hh - 2 * p);
@@ -195,25 +195,25 @@
   const T = (h, r) => `<table class="itab"><tr>${h.map(c => `<th>${c}</th>`).join('')}</tr>${r.map((row, i) => `<tr style="--i:${i}">${row.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</table>`;
   function neuronInside(n) {
     const G = layout(), { cfg, sz, L, nIdx, wIdx } = G, m = NA.m, [l, j] = locateN(G, n), prev = m.a[l - 1], a = actName(l), zv = m.z[l - 1][j], av = m.a[l][j], isOut = l === L;
-    const rows = prev.slice(0, 40).map((v, i) => [`w${wIdx[l][j][i]}`, N(cfg.W[l - 1][j][i]), `${l === 1 ? 'x' : 'a'}${l === 1 ? i + 1 : nIdx[l - 1][i]}`, N(v), `<b>${N(cfg.W[l - 1][j][i] * v)}</b>`]);
+    const rows = prev.slice(0, 40).map((v, i) => [`w${wIdx[l][j][i]}`, NF(cfg.W[l - 1][j][i]), `${l === 1 ? 'x' : 'a'}${l === 1 ? i + 1 : nIdx[l - 1][i]}`, NF(v), `<b>${NF(cfg.W[l - 1][j][i] * v)}</b>`]);
     if (prev.length > 40) rows.push(['…', '', '', '', `${prev.length - 40} more terms`]);
-    rows.push([`b${n}`, N(cfg.b[l - 1][j]), '—', '—', `<b>${N(cfg.b[l - 1][j])}</b>`]); rows.push(['<b>total</b>', '', '', '', `<b>z${n} = ${N(zv)}</b>`]);
+    rows.push([`b${n}`, NF(cfg.b[l - 1][j]), '—', '—', `<b>${NF(cfg.b[l - 1][j])}</b>`]); rows.push(['<b>total</b>', '', '', '', `<b>z${n} = ${NF(zv)}</b>`]);
     let fn, curve = '', t2, lede2;
-    if (a === 'softmax') { const zs = m.z[l - 1], mx = Math.max(...zs), ex = zs.map(v => Math.exp(v - mx)), se = ex.reduce((p, q) => p + q, 0); fn = K(R`\hat y_c=\dfrac{e^{z_c}}{\sum_q e^{z_q}}`, true); t2 = T(['output', 'z', 'e<sup>z</sup> (shifted by max)', '÷ total ' + N(se) + ' = ŷ'], zs.slice(0, 20).map((v, c) => [`ŷ${c + 1} (z${nIdx[L][c]})`, N(v), N(ex[c]), `<b>${N(m.a[L][c])}</b> (${(m.a[L][c] * 100).toFixed(1)}%)`])); lede2 = 'Softmax makes every z positive with e^z, then divides by the total so the answers add up to 100%.'; }
-    else if (a === 'sigmoid') { fn = K(R`\sigma(z)=\dfrac{1}{1+e^{-z}}`, true); curve = inCurve('sig', [zv], [av]); t2 = T(['z', 'e<sup>−z</sup>', '1 + e<sup>−z</sup>', '1 ÷ that = a'], [[N(zv), N(Math.exp(-zv)), N(1 + Math.exp(-zv)), `<b>${N(av)}</b>`]]); lede2 = 'Sigmoid turns any number into a dial between 0 and 1.'; }
-    else if (a === 'tanh') { fn = K(R`\tanh(z)=\dfrac{e^{z}-e^{-z}}{e^{z}+e^{-z}}`, true); curve = inCurve('tanh', [zv], [av]); t2 = T(['z', 'e<sup>z</sup>', 'e<sup>−z</sup>', '(e<sup>z</sup>−e<sup>−z</sup>) ÷ (e<sup>z</sup>+e<sup>−z</sup>) = a'], [[N(zv), N(Math.exp(zv)), N(Math.exp(-zv)), `<b>${N(av)}</b>`]]); lede2 = 'tanh squeezes any number into −1 to 1.'; }
-    else if (a === 'relu') { fn = K(R`\mathrm{ReLU}(z)=\max(0,z)`, true); curve = inCurve('relu', [zv], [av]); t2 = T(['z', 'max(0, z) = a'], [[N(zv), `<b>${N(av)}</b>`]]); lede2 = 'ReLU keeps positive numbers and turns negative numbers into 0.'; }
-    else { fn = K(R`a=z`, true); t2 = T(['z', 'a'], [[N(zv), `<b>${N(av)}</b>`]]); lede2 = 'The identity leaves the number as it is.'; }
+    if (a === 'softmax') { const zs = m.z[l - 1], mx = Math.max(...zs), ex = zs.map(v => Math.exp(v - mx)), se = ex.reduce((p, q) => p + q, 0); fn = K(R`\hat y_c=\dfrac{e^{z_c}}{\sum_q e^{z_q}}`, true); t2 = T(['output', 'z', 'e<sup>z</sup> (shifted by max)', '÷ total ' + NF(se) + ' = ŷ'], zs.slice(0, 20).map((v, c) => [`ŷ${c + 1} (z${nIdx[L][c]})`, NF(v), NF(ex[c]), `<b>${NF(m.a[L][c])}</b> (${(m.a[L][c] * 100).toFixed(1)}%)`])); lede2 = 'Softmax makes every z positive with e^z, then divides by the total so the answers add up to 100%.'; }
+    else if (a === 'sigmoid') { fn = K(R`\sigma(z)=\dfrac{1}{1+e^{-z}}`, true); curve = inCurve('sig', [zv], [av]); t2 = T(['z', 'e<sup>−z</sup>', '1 + e<sup>−z</sup>', '1 ÷ that = a'], [[NF(zv), NF(Math.exp(-zv)), NF(1 + Math.exp(-zv)), `<b>${NF(av)}</b>`]]); lede2 = 'Sigmoid turns any number into a dial between 0 and 1.'; }
+    else if (a === 'tanh') { fn = K(R`\tanh(z)=\dfrac{e^{z}-e^{-z}}{e^{z}+e^{-z}}`, true); curve = inCurve('tanh', [zv], [av]); t2 = T(['z', 'e<sup>z</sup>', 'e<sup>−z</sup>', '(e<sup>z</sup>−e<sup>−z</sup>) ÷ (e<sup>z</sup>+e<sup>−z</sup>) = a'], [[NF(zv), NF(Math.exp(zv)), NF(Math.exp(-zv)), `<b>${NF(av)}</b>`]]); lede2 = 'tanh squeezes any number into −1 to 1.'; }
+    else if (a === 'relu') { fn = K(R`\mathrm{ReLU}(z)=\max(0,z)`, true); curve = inCurve('relu', [zv], [av]); t2 = T(['z', 'max(0, z) = a'], [[NF(zv), `<b>${NF(av)}</b>`]]); lede2 = 'ReLU keeps positive numbers and turns negative numbers into 0.'; }
+    else { fn = K(R`a=z`, true); t2 = T(['z', 'a'], [[NF(zv), `<b>${NF(av)}</b>`]]); lede2 = 'The identity leaves the number as it is.'; }
     const inH = `<span class="vl">incoming values</span>${uvec(prev)}<span class="vl">weights</span>${uvec(cfg.W[l - 1][j])}`;
     const fnH = K(R`z_{${n}}=\sum_i w_i\,a_i+b_{${n}}`, true) + fn;
-    const outH = `<span class="vl">z${n}</span><span class="uv" style="--uc:${AC.hid}"><i>z${n}</i>${N(zv)}</span><span class="vl">${isOut ? 'ŷ' + (j + 1) + ' = a' + n : 'a' + n}</span><span class="uv" style="--uc:${isOut ? AC.out : AC.hid}"><i>${isOut ? 'ŷ' + (j + 1) : 'a' + n}</i>${N(av)}</span>`;
+    const outH = `<span class="vl">z${n}</span><span class="uv" style="--uc:${AC.hid}"><i>z${n}</i>${NF(zv)}</span><span class="vl">${isOut ? 'ŷ' + (j + 1) + ' = a' + n : 'a' + n}</span><span class="uv" style="--uc:${isOut ? AC.out : AC.hid}"><i>${isOut ? 'ŷ' + (j + 1) : 'a' + n}</i>${NF(av)}</span>`;
     return `<div class="ihead"><span class="isym" style="background:${actCol(l)};color:${actDark(l) ? '#3b2f00' : '#fff'}">${actLabel(l)}</span><div><h3>Inside neuron ${n}: z${n} → ${isOut ? 'ŷ' + (j + 1) : 'a' + n}</h3><div class="ilede">Step 1: add up the weighted inputs to get z${n}. Step 2: ${esc2(lede2)}</div></div></div><div class="iflow"><div class="ibox"><div class="ik">What came in</div>${inH}</div><div class="iarr">➜</div><div class="ibox mid"><div class="ik">What happens inside</div>${fnH}</div><div class="iarr">➜</div><div class="ibox"><div class="ik">What came out</div>${outH}</div></div><div class="itw"><div class="ik" style="margin-top:8px">Step 1 · the weighted sum</div>${T(['weight', 'value', 'times', 'incoming', '= product'], rows)}</div>${curve ? `<div class="icwrap">${curve}</div>` : ''}<div class="itw"><div class="ik" style="margin-top:8px">Step 2 · the ${a === 'identity' || a === 'linear' ? 'identity' : a} function</div>${t2}</div>`;
   }
   function inside(nm) {
     if (/^n\d+$/.test(nm)) return neuronInside(+nm.slice(1));
     if (nm === 'loss') {
       const G = layout(), { cfg, L, nIdx } = G, m = NA.m, y = m.a[L], t = cfg.t, sm = cfg.out === 'softmax';
-      return `<div class="ihead"><span class="isym" style="background:${AC.loss};color:#fff">L</span><div><h3>Inside the loss</h3><div class="ilede">${sm ? 'Cross-entropy only looks at the probability of the right answer.' : 'Half the sum of the squared differences between prediction and target.'}</div></div></div><div class="iflow"><div class="ibox"><div class="ik">What came in</div><span class="vl">ŷ</span>${uvec(y)}<span class="vl">target</span>${uvec(t)}</div><div class="iarr">➜</div><div class="ibox mid"><div class="ik">What happens inside</div>${K(sm ? R`L=-\sum_k t_k\ln\hat y_k` : R`L=\tfrac12\sum_k(\hat y_k-t_k)^2`, true)}</div><div class="iarr">➜</div><div class="ibox"><div class="ik">What came out</div><span class="uv" style="--uc:${AC.loss}"><i>L</i>${N(m.L)}</span></div></div><div class="itw">${T(sm ? ['output', 'target t', 'ŷ', '−t · ln ŷ'] : ['output', 'prediction ŷ', 'target t', '½ (ŷ − t)²'], y.slice(0, 30).map((v, c) => sm ? [`ŷ${c + 1}`, N(t[c]), N(v), `<b>${N(-t[c] * Math.log(v))}</b>`] : [`ŷ${c + 1}`, N(v), N(t[c]), `<b>${N(.5 * (v - t[c]) ** 2)}</b>`]))}<div class="note" style="margin-top:6px">Total: <b>L = ${N(m.L)}</b></div></div>`;
+      return `<div class="ihead"><span class="isym" style="background:${AC.loss};color:#fff">L</span><div><h3>Inside the loss</h3><div class="ilede">${sm ? 'Cross-entropy only looks at the probability of the right answer.' : 'Half the sum of the squared differences between prediction and target.'}</div></div></div><div class="iflow"><div class="ibox"><div class="ik">What came in</div><span class="vl">ŷ</span>${uvec(y)}<span class="vl">target</span>${uvec(t)}</div><div class="iarr">➜</div><div class="ibox mid"><div class="ik">What happens inside</div>${K(sm ? R`L=-\sum_k t_k\ln\hat y_k` : R`L=\tfrac12\sum_k(\hat y_k-t_k)^2`, true)}</div><div class="iarr">➜</div><div class="ibox"><div class="ik">What came out</div><span class="uv" style="--uc:${AC.loss}"><i>L</i>${NF(m.L)}</span></div></div><div class="itw">${T(sm ? ['output', 'target t', 'ŷ', '−t · ln ŷ'] : ['output', 'prediction ŷ', 'target t', '½ (ŷ − t)²'], y.slice(0, 30).map((v, c) => sm ? [`ŷ${c + 1}`, NF(t[c]), NF(v), `<b>${NF(-t[c] * Math.log(v))}</b>`] : [`ŷ${c + 1}`, NF(v), NF(t[c]), `<b>${NF(.5 * (v - t[c]) ** 2)}</b>`]))}<div class="note" style="margin-top:6px">Total: <b>L = ${NF(m.L)}</b></div></div>`;
     }
     return null;
   }
@@ -250,7 +250,7 @@
       <div class="archcap" id="a-cap"></div>
       <div class="archgrid"><div class="archstage" id="a-stage"><div class="archwrap" id="a-wrap"><svg id="a-svg"></svg></div><div class="insideov" id="a-ov"></div></div><aside class="archinfo" id="a-info"></aside></div>
       <div class="wkey" id="a-key"></div>
-      <div class="archleg"><span><i style="background:${AC.x}"></i>input x</span><span><i style="background:${AC.hid}"></i>hidden neuron (z)</span><span><i style="background:${AC.out}"></i>output neuron (ŷ)</span><span><i style="background:${AC.sig}"></i>badge: activation function</span><span>left of badge: z value · right of badge: a value</span><span><i style="background:${AC.loss}"></i>loss</span><span><i style="background:${AC.pos}"></i>weight &gt; 0</span><span><i style="background:${AC.neg}"></i>weight &lt; 0</span><span><i style="background:${AC.g}"></i>gradient (backward)</span></div>`;
+      <div class="archleg"><span><i style="background:${AC.x}"></i>input x</span><span><i style="background:${AC.hid}"></i>hidden neuron (z)</span><span><i style="background:${AC.out}"></i>output neuron (ŷ)</span><span><i style="background:${AC.sig}"></i>badge: activation function</span><span>below a node: z value, then function, then a value</span><span><i style="background:${AC.loss}"></i>loss</span><span><i style="background:${AC.pos}"></i>weight &gt; 0</span><span><i style="background:${AC.neg}"></i>weight &lt; 0</span><span><i style="background:${AC.g}"></i>gradient (backward)</span></div>`;
       $('#a-run').onclick = e => { const b = e.target.closest('button'); if (!b) return; gStop(); const r = b.dataset.r; NA.g.on = r !== '0'; NA.g.back = r === '2'; NA.g.s = 0; NA.sel = null; NA.zoom = null; renderArch(); };
       $('#a-vals').onchange = e => { NA.vals = e.target.checked; renderArch(); };
       $('#a-zp').onclick = () => { NA.zoom = (NA.zoom || fit()) * 1.2; renderArch(); }; $('#a-zm').onclick = () => { NA.zoom = (NA.zoom || fit()) / 1.2; renderArch(); }; $('#a-fit').onclick = () => { NA.zoom = null; renderArch(); };
@@ -269,7 +269,7 @@
     const gd = NA.g.on;
     document.querySelectorAll('#a-run button').forEach(b => b.classList.toggle('on', (b.dataset.r === '0' && !gd) || (b.dataset.r === '1' && gd && !NA.g.back) || (b.dataset.r === '2' && gd && NA.g.back)));
     $('#a-vl').style.display = gd ? 'none' : ''; $('#a-gbar').style.display = gd ? '' : 'none';
-    $('#a-cap').style.display = gd ? 'none' : ''; $('#a-cap').innerHTML = rt('Every neuron is one round node **z**. Above it you read, left to right: the calculated **z** value, the **activation function**, and the resulting **a**. The **a** value is what the next weights multiply. Click any node, weight, the target or the loss. Weights are numbered **w1, w2, …** input by input.');
+    $('#a-cap').style.display = gd ? 'none' : ''; $('#a-cap').innerHTML = rt('Every neuron is one round node **z**. Above it is its **bias b**. Below it you read from top to bottom: the calculated **z** value, the **activation function**, and the resulting **a** value, which is what the next weights multiply. Click any node, weight, the target or the loss. Weights are numbered **w1, w2, …** input by input.');
     if (gd) { const n = seq().length; $('#g-dots').innerHTML = seq().map((_, i) => `<i class="${i < NA.g.s ? 'd' : i === NA.g.s ? 'a' : ''}" data-i="${i}" title="${esc2(seq()[i].t)}"></i>`).join(''); $('#g-play').textContent = NA.g.play ? '⏸ Pause' : '▶ Play'; $('#g-prev').disabled = NA.g.s === 0; $('#g-next').disabled = NA.g.s === n - 1; }
     const g = draw(), svg = $('#a-svg'), z = NA.zoom || fit(g.W, g.H); svg.setAttribute('viewBox', `0 0 ${g.W} ${g.H}`); svg.style.width = Math.round(g.W * z) + 'px'; svg.style.height = Math.round(g.H * z) + 'px'; svg.innerHTML = g.html; NA._W = g.W; NA._H = g.H;
     $('#a-key').innerHTML = keyHTML();

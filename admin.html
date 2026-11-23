@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Admin · Ahsaan Labs</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+:root{--bg:#F4F7FB;--card:#fff;--tx:#1b2430;--mut:#64748B;--line:#DDE5EE;--a:#2B7A9B;--v:#7C4DDB;--g:#16A34A;--o:#D9730D}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 22px;background:#fff;border-bottom:1px solid var(--line)}
+header h1{margin:0;font-size:20px}header .sp{flex:1}header a{color:var(--a);text-decoration:none;font-weight:600}
+main{max-width:1180px;margin:0 auto;padding:22px}
+.btn{font:600 13px system-ui;border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 14px;cursor:pointer}.btn.p{background:var(--a);color:#fff;border-color:var(--a)}
+.box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:18px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}.kpi b{display:block;font-size:30px;line-height:1.1}.kpi span{color:var(--mut);font-size:12.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+h2{font-size:17px;margin:0 0 10px}table{border-collapse:collapse;width:100%;font-size:13.5px}th{text-align:left;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.05em;padding:6px 8px;border-bottom:1px solid var(--line)}td{padding:7px 8px;border-bottom:1px solid #EEF2F7}
+.tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600;background:#EAF4F8;color:#1E5873}.tag.teacher{background:#E8F7EE;color:#14532D}.tag.student{background:#EEF0FF;color:#3730A3}.tag.guest{background:#F1F5F9;color:#475569}.tag.admin{background:#FFF3E0;color:#9A4B00}
+.chart{display:flex;align-items:flex-end;gap:6px;height:150px;padding-top:10px}.chart .c{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:1px;min-width:0}.chart .bar{width:100%;border-radius:4px 4px 0 0}.chart small{font-size:10px;color:var(--mut)}
+.leg{display:flex;gap:14px;font-size:12px;color:var(--mut);margin-top:6px;flex-wrap:wrap}.leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+.scroll{overflow:auto;max-height:420px}.note{color:var(--mut);font-size:13px}.center{text-align:center;padding:60px 20px}
+</style>
+</head>
+<body>
+<header><h1>Ahsaan Labs · Admin</h1><span class="sp"></span><span id="who" class="note"></span><button class="btn" id="out" style="display:none">Sign out</button><a href="./">← Labs</a></header>
+<main id="m"><div class="center note">Loading…</div></main>
+<script src="labs-auth.js"></script>
+<script>
+(function(){
+var $=function(s){return document.querySelector(s)};
+var A=window.LabsAuth,M=$('#m');
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function fmt(d){if(!d)return'';var x=d.toDate?d.toDate():d;return x.toLocaleString([], {dateStyle:'medium',timeStyle:'short'})}
+function sample(){var now=Date.now(),labs=['neural-network','cnn','rnn','lstm','hub'],ev=[],users=[],names=['Sara Khan|sara@cs.uol.edu.pk|teacher','Ali Raza|ali@student.uol.edu.pk|student','Hina Malik|hina@student.uol.edu.pk|student','Dr. Omar|omar@cs.uol.edu.pk|teacher','Zain Ahmed|zain@student.uol.edu.pk|student'];
+ names.forEach(function(n,i){var p=n.split('|');users.push({id:'u'+i,name:p[0],email:p[1],role:p[2],loginCount:3+i*2,firstLogin:new Date(now-86400000*(10-i)),lastLogin:new Date(now-3600000*(i+1))});});
+ for(var i=0;i<260;i++){var t=['visit','visit','visit','run','login','download'][i%6],r=t==='visit'&&i%3?'guest':['teacher','student','student'][i%3];ev.push({type:t,lab:labs[i%5],detail:t==='download'?(i%2?'pptx:':'pdf:')+labs[i%4]:'',role:r,ts:new Date(now-i*3.2e6)});}
+ return{vis:128,usr:5,tea:2,stu:3,log:31,run:44,dl:12,users:users,events:ev};}
+async function real(){var f=await A.firebase(),db=f.db,fs=f.fs,C=function(n){return fs.collection(db,n)};
+ var cnt=async function(q){return(await fs.getCountFromServer(q)).data().count};
+ var E=function(t){return fs.query(C('events'),fs.where('type','==',t))},R=function(r){return fs.query(C('users'),fs.where('role','==',r))};
+ var r=await Promise.all([cnt(C('visitors')),cnt(C('users')),cnt(R('teacher')),cnt(R('student')),cnt(E('login')),cnt(E('run')),cnt(E('download'))]);
+ var users=(await fs.getDocs(fs.query(C('users'),fs.orderBy('lastLogin','desc'),fs.limit(500)))).docs.map(function(d){var x=d.data();x.id=d.id;return x});
+ var events=(await fs.getDocs(fs.query(C('events'),fs.orderBy('ts','desc'),fs.limit(1000)))).docs.map(function(d){return d.data()});
+ return{vis:r[0],usr:r[1],tea:r[2],stu:r[3],log:r[4],run:r[5],dl:r[6],users:users,events:events};}
+function day(d){return (d.toDate?d.toDate():d).toISOString().slice(0,10)}
+function render(D){
+ var kp=[['Unique visitors',D.vis],['Signed-in users',D.usr],['Teachers',D.tea],['Students',D.stu],['Logins',D.log],['Lab runs',D.run],['Downloads',D.dl]];
+ var days=[];for(var i=13;i>=0;i--)days.push(new Date(Date.now()-i*864e5).toISOString().slice(0,10));
+ var by={};days.forEach(function(d){by[d]={visit:0,login:0,download:0,run:0}});
+ var labs={};D.events.forEach(function(e){if(!e.ts)return;var d=day(e.ts);if(by[d]&&by[d][e.type]!=null)by[d][e.type]++;var l=labs[e.lab]=labs[e.lab]||{visit:0,run:0,download:0,login:0};if(l[e.type]!=null)l[e.type]++;});
+ var mx=Math.max(1,Math.max.apply(null,days.map(function(d){return by[d].visit+by[d].login+by[d].download})));
+ var col={visit:'#94A3B8',login:'#2B7A9B',download:'#D9730D'};
+ var chart=days.map(function(d){var b=by[d];return'<div class="c" title="'+d+': '+b.visit+' visits, '+b.login+' logins, '+b.download+' downloads">'+['download','login','visit'].map(function(k){return'<div class="bar" style="height:'+(b[k]/mx*120)+'px;background:'+col[k]+'"></div>'}).join('')+'<small>'+d.slice(8)+'</small></div>'}).join('');
+ var labRows=Object.keys(labs).sort().map(function(k){var l=labs[k];return'<tr><td>'+esc(k)+'</td><td>'+l.visit+'</td><td>'+l.run+'</td><td>'+l.download+'</td></tr>'}).join('');
+ var urows=D.users.map(function(u){return'<tr><td>'+esc(u.name)+'</td><td>'+esc(u.email)+'</td><td><span class="tag '+esc(u.role)+'">'+esc(u.role)+'</span></td><td>'+(u.loginCount||0)+'</td><td>'+fmt(u.firstLogin)+'</td><td>'+fmt(u.lastLogin)+'</td></tr>'}).join('')||'<tr><td colspan="6" class="note">No sign-ins yet.</td></tr>';
+ var erows=D.events.slice(0,60).map(function(e){return'<tr><td>'+fmt(e.ts)+'</td><td>'+esc(e.type)+'</td><td>'+esc(e.lab)+'</td><td>'+esc(e.detail)+'</td><td><span class="tag '+esc(e.role)+'">'+esc(e.role)+'</span></td></tr>'}).join('');
+ M.innerHTML='<div class="kpis">'+kp.map(function(k){return'<div class="kpi"><span>'+k[0]+'</span><b>'+k[1]+'</b></div>'}).join('')+'</div>'+
+ '<div class="box"><h2>Last 14 days</h2><div class="chart">'+chart+'</div><div class="leg"><span><i style="background:#94A3B8"></i>visits</span><span><i style="background:#2B7A9B"></i>logins</span><span><i style="background:#D9730D"></i>downloads</span></div><div class="note" style="margin-top:6px">Charts use the latest 1000 events.</div></div>'+
+ '<div class="grid2"><div class="box"><h2>By lab (latest 1000 events)</h2><table><tr><th>Lab</th><th>Visits</th><th>Runs</th><th>Downloads</th></tr>'+labRows+'</table></div><div class="box"><h2>Who downloads what</h2><div class="scroll"><table><tr><th>When</th><th>Who</th><th>What</th></tr>'+D.events.filter(function(e){return e.type==='download'}).slice(0,40).map(function(e){return'<tr><td>'+fmt(e.ts)+'</td><td><span class="tag '+esc(e.role)+'">'+esc(e.role)+'</span></td><td>'+esc(e.detail)+'</td></tr>'}).join('')+'</table></div></div></div>'+
+ '<div class="box"><h2>Users <button class="btn" id="csv" style="float:right">Download CSV</button></h2><div class="scroll"><table><tr><th>Name</th><th>Email</th><th>Role</th><th>Logins</th><th>First login</th><th>Last login</th></tr>'+urows+'</table></div></div>'+
+ '<div class="box"><h2>Recent activity</h2><div class="scroll"><table><tr><th>When</th><th>Event</th><th>Lab</th><th>Detail</th><th>Who</th></tr>'+erows+'</table></div></div>';
+ $('#csv').onclick=function(){var rows=[['name','email','role','logins','first_login','last_login']].concat(D.users.map(function(u){return[u.name,u.email,u.role,u.loginCount||0,fmt(u.firstLogin),fmt(u.lastLogin)]}));var csv=rows.map(function(r){return r.map(function(c){return'"'+String(c==null?'':c).replace(/"/g,'""')+'"'}).join(',')}).join('\n');var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ahsaan-labs-users.csv';a.click();};
+}
+function show(s){
+ if(!A||!A.enabled){M.innerHTML='<div class="box center"><h2>Sign-in is not set up yet</h2><p class="note">Fill in the Firebase config in <code>labs-auth.js</code> and follow <code>FIREBASE_SETUP.md</code>.</p></div>';return;}
+ if(!s.ready){M.innerHTML='<div class="center note">Loading…</div>';return;}
+ $('#who').textContent=s.user?s.user.email:'';$('#out').style.display=s.user?'':'none';$('#out').onclick=A.signOut;
+ if(!s.user){M.innerHTML='<div class="box center"><h2>Admin sign-in</h2><p class="note">Sign in with the admin Google account.</p><button class="btn p" id="in">Continue with Google</button><p class="note">'+esc(s.msg||'')+'</p></div>';$('#in').onclick=function(){A.signIn()};return;}
+ if(!A.isAdmin()){M.innerHTML='<div class="box center"><h2>Not authorised</h2><p class="note">'+esc(s.user.email)+' is not an admin account.</p></div>';return;}
+ M.innerHTML='<div class="center note">Loading stats…</div>';
+ (A.test?Promise.resolve(sample()):real()).then(render).catch(function(e){M.innerHTML='<div class="box center"><h2>Could not load stats</h2><p class="note">'+esc(e&&e.message||e)+'</p><p class="note">Check that firestore.rules are published and the admin email matches.</p></div>';});
+}
+if(A){A.onChange(show);}else show({});
+})();
+</script>
+</body>
+</html>

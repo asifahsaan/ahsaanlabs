@@ -154,7 +154,7 @@ footer a{color:var(--a)}
 </section>
 </main>
 
-<footer>Ahsaan Labs by <a href="https://asifahsaan.github.io/">Asif Ahsan</a> · Lecturer in Machine Learning &amp; AI · free for teaching and learning</footer>
+<footer><a href="privacy.html">Privacy</a> · Ahsaan Labs by <a href="https://asifahsaan.github.io/">Asif Ahsan</a> · Lecturer in Machine Learning &amp; AI · free for teaching and learning</footer>
 
 <script>
 document.getElementById('tg').onclick=()=>{const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;try{localStorage.setItem('theme',t)}catch(e){}};
@@ -162,5 +162,6 @@ const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.targ
 document.querySelectorAll('.rv').forEach(el=>io.observe(el));
 fetch('https://api.github.com/repos/asifahsaan/ahsaanlabs').then(r=>r.ok?r.json():null).then(d=>{if(d&&d.stargazers_count>0){document.getElementById('starn').textContent=' · '+d.stargazers_count;}}).catch(()=>{});
 </script>
+<script src="labs-auth.js" defer></script>
 </body>
 </html>

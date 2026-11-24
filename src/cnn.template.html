@@ -40,6 +40,30 @@ body{padding-top:10px}
 .paint{display:inline-grid;gap:2px;margin:6px 0;touch-action:none;cursor:crosshair;user-select:none;padding:4px;background:#ddd;border-radius:6px}
 .paint div{width:34px;height:34px;border-radius:3px}
 .vscroll{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px;background:#fff}
+
+.cbbar{display:flex;gap:12px 16px;align-items:flex-end;flex-wrap:wrap;margin:6px 0 10px}
+.cbadd{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 10px;background:#EEF2F7;border:1px solid #DDE5EE;border-radius:14px}
+.cbadd .btn{border-radius:10px;padding:7px 12px}
+.cbf{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mut);font-weight:600}.cbf.big select{min-width:340px}
+.cbf input,.cbf select{font:inherit;font-size:14px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;width:96px;color:var(--ink)}.cbf select{width:auto}
+.cbintro{background:var(--card);border-radius:10px;padding:9px 13px;font-size:14px;margin-bottom:10px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:10px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 14px}.kpi span{display:block;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);font-weight:600}.kpi b{font-size:22px}
+.cbwrap{overflow:auto;background:radial-gradient(circle at 15% 0,#fff,#F6F9FC);border:1px solid var(--line);border-radius:16px;padding:6px;margin-bottom:10px}.cbwrap svg{display:block;font-family:inherit}
+.cbnode:hover{filter:drop-shadow(0 0 5px rgba(30,88,115,.5))}
+.cbgrid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start}@media(max-width:1000px){.cbgrid{grid-template-columns:1fr}}
+.cbh3{font-size:17px;margin:14px 0 6px}
+.cbtw{overflow:auto;background:#fff;border:1px solid var(--line);border-radius:14px}
+.cbt{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}.cbt th{background:#4A6FC0;color:#fff;text-align:left;padding:8px 10px;font-size:12.5px}.cbt td{padding:7px 10px;border-top:1px solid #E7ECF3;vertical-align:top}.cbt tr[data-i]{cursor:pointer}.cbt tr[data-i]:nth-child(even){background:#F3F6FB}.cbt tr[data-i]:hover{background:#E8F0FB}.cbt tr.on{background:#DDEBFB!important;outline:2px solid #2B7A9B;outline-offset:-2px}.cbt tr.bad td{color:#C0392B}.cbt tr.tot td{background:#EEF2F7;font-weight:600}
+.pbar{display:inline-block;width:70px;height:8px;background:#EEF1F5;border-radius:4px;overflow:hidden;vertical-align:middle}.pbar i{display:block;height:100%;background:#D9730D}
+.cbdetail{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 18px;box-shadow:0 6px 24px rgba(15,23,42,.06);position:sticky;top:8px;max-height:calc(100vh - 24px);overflow:auto}
+.cbdetail h3{margin:0 0 6px}.cbdetail .katex-display{overflow-x:auto;overflow-y:hidden;margin:.5em 0;font-size:.95em}.cbdetail .why{font-size:13.5px;color:#33414d}
+.warnbox{background:#FFF4E5;border-left:4px solid #F59E0B;border-radius:8px;padding:7px 11px;margin:6px 0;font-size:13.5px}
+.slidebox{margin-top:10px;background:#F6F9FC;border-radius:12px;padding:8px 10px}
+.cbeditor{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px}
+.cbcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;min-width:180px}
+.cbh{font-weight:700;display:flex;align-items:center;gap:8px;font-size:14px}.cbh b{background:var(--acc);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:12px}.cbtools{margin-left:auto;display:flex;gap:3px}
+.btn.tiny{padding:4px 9px;font-size:12px;border-radius:8px}
 </style>
 </head>
 <body>
@@ -48,6 +72,7 @@ body{padding-top:10px}
   <div><div class="kick">Artificial Intelligence · Interactive lab · Module 2</div><h1 id="h1">CNN Lab: convolution, ReLU, pooling and softmax, step by step</h1></div>
   <div class="tabs" id="tabs">
     <button class="tab on" data-t="step">Step by step</button>
+    <button class="tab" data-t="arch">Architecture</button>
     <button class="tab" data-t="all">Show all</button>
     <button class="tab" data-t="check">Gradient check</button>
     <button class="tab" data-t="train">Training</button>
@@ -96,6 +121,8 @@ body{padding-top:10px}
   <div class="jump" id="jump"></div>
   <div class="note" style="margin-top:6px">Tip: use the ← → keys. Want a different image, filter or network? Open the <b>Custom example</b> tab.</div>
 </section>
+
+<section id="p-arch" class="hide"><div id="cbroot"></div></section>
 
 <section id="p-all" class="hide"></section>
 
@@ -332,8 +359,8 @@ function renderJump(){const first=ph=>steps.findIndex(s=>s.ph===ph);const L=[['S
   $('#jump').querySelectorAll('button').forEach(b=>b.onclick=()=>{stopPlay();go(+b.dataset.i)});}
 function rebuild(relayout=true){steps=build();S.i=Math.min(S.i,steps.length-1);if(relayout)makeLayout();if(tab==='step')paint();renderJump();if(tab==='all')renderAll();if(tab==='check')renderCheck();if(tab==='train'){trainResetIfNeeded();renderTrain();}}
 function setTab(t){tab=t;stopPlay();stopTrainPlay();syncPanel();document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
-  for(const id of ['step','all','check','train','cust'])$('#p-'+id).classList.toggle('hide',id!==t);
-  if(t==='all')renderAll();if(t==='check')renderCheck();if(t==='train'){trainResetIfNeeded();renderTrain();}if(t==='step')paint();if(t==='cust')buildCustom();}
+  for(const id of ['step','arch','all','check','train','cust'])$('#p-'+id).classList.toggle('hide',id!==t);
+  if(t==='arch')renderArch();if(t==='all')renderAll();if(t==='check')renderCheck();if(t==='train'){trainResetIfNeeded();renderTrain();}if(t==='step')paint();if(t==='cust')buildCustom();}
 function renderAll(){const names={S:['Setup',''],F:['Forward pass',''],B:['Backward pass (chain rule)','B'],U:['Update',''],C:['Check','']};let h='',last='';
   steps.forEach((s,i)=>{if(s.ph!==last){last=s.ph;const nm=names[s.ph];h+=(i?'</div>':'')+`<div class="sec ${nm[1]}">${nm[0]}</div><div class="cards">`;}
     h+=`<div class="card"><div class="k">Step ${i+1} of ${steps.length}</div><h4>${rt(s.title)}</h4>${s.res.map(r=>K(r,true)).join('')}</div>`;});
@@ -447,6 +474,7 @@ function wireCustom(){wirePaint();
   document.querySelectorAll('#c-cls input[data-cn]').forEach(inp=>inp.oninput=()=>{S.cfg.names[+inp.dataset.cn]=inp.value||`class ${+inp.dataset.cn+1}`;rebuild(true);});}
 const k_=()=>S.cfg.filters[0].w.length;
 /* ================= floating explainer + book icon ================= */
+/*INCLUDE:cnn_arch.js*/
 /*PANEL_JS*/
 /* ================= wiring ================= */
 const st_gloss=()=>steps.gloss;
@@ -472,7 +500,7 @@ function init(){initConcepts();
   $('#creset').onclick=()=>{S.cfg=defaultCfg();TR.cfg=null;S.i=0;rebuild(true);buildCustom();$('#cmsg').innerHTML='<span class="okk">Back to the lecture example.</span>';};
   $('#crand').onclick=()=>{const c=clone(S.cfg),r=mulberry(Date.now()%100000);c.filters.forEach(f=>{f.w=f.w.map(rw=>rw.map(()=>+(gauss(r)*.6).toFixed(2)));f.b=+(gauss(r)*.1).toFixed(2);});c.V=c.V.map(rw=>rw.map(()=>+(gauss(r)*.3).toFixed(2)));validateAndApply(c,'Random weights.');buildCustom();};
   $('#cgo').onclick=()=>{setTab('step');go(0);};
-  window.__app={S,steps:()=>steps,forward,backward,applyG,numGrads,analyticGrads,shapes,go,setTab,openPanel,closePanel,rebuild,reshapeCfg,validateAndApply,defaultCfg,trainN,trainReset,TR:()=>TR,geo:()=>geo};
+  window.__app={renderArch:()=>window.renderArch(),S,steps:()=>steps,forward,backward,applyG,numGrads,analyticGrads,shapes,go,setTab,openPanel,closePanel,rebuild,reshapeCfg,validateAndApply,defaultCfg,trainN,trainReset,TR:()=>TR,geo:()=>geo};
 }
 init();
 </script>
